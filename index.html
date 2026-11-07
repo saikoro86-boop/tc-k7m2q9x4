@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>テニスコート空き検索</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c1f24; --sub:#6a7280; --accent:#1f8a4c; --line:#e3e6ea; --chip:#e9f5ee; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171a; --card:#1d2126; --text:#eceff3; --sub:#9aa3af; --accent:#4cc27f; --line:#2c3238; --chip:#1f3a2b; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 -apple-system,"Hiragino Sans",sans-serif; }
+  header { padding:16px; }
+  h1 { margin:0; font-size:20px; }
+  #updated { color:var(--sub); font-size:12px; }
+  [hidden] { display:none !important; }
+  .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .actions button { font-size:13px; padding:5px 12px; }
+  .actions button:disabled { opacity:.6; cursor:default; }
+  .bar { position:sticky; top:0; background:var(--bg); padding:8px 16px; border-bottom:1px solid var(--line); z-index:2; }
+  .row { display:flex; gap:8px; overflow-x:auto; padding:4px 0; scrollbar-width:none; }
+  .row::-webkit-scrollbar { display:none; }
+  button { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:999px; padding:6px 14px; white-space:nowrap; cursor:pointer; }
+  button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .day { display:flex; flex-direction:column; align-items:center; min-width:54px; border-radius:12px; padding:6px 8px; line-height:1.25; }
+  .day small { font-size:11px; opacity:.8; }
+  .day b { font-size:12px; margin-top:2px; }
+  .sat small { color:#3b82f6; } .sun small { color:#ef4444; }
+  .day[aria-pressed="true"] small { color:#fff; }
+  main { padding:12px 16px 40px; display:grid; gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; }
+  .card h2 { margin:0 0 2px; font-size:16px; }
+  .city { color:var(--sub); font-size:12px; }
+  .court { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-top:1px solid var(--line); }
+  .court:first-of-type { border-top:0; }
+  .court > span:first-child { flex:1 1 40%; }
+  .times { flex:1 1 60%; display:flex; flex-wrap:wrap; gap:4px; justify-content:flex-end; }
+  .t { background:var(--chip); color:var(--accent); border-radius:6px; padding:1px 8px; font-size:13px; font-weight:600; }
+  .btn { display:inline-block; margin-top:10px; padding:8px 16px; border-radius:999px; background:var(--accent); color:#fff; text-decoration:none; font-weight:600; }
+  .card.link .city + h2 + .city { margin:2px 0 0; }
+  a.t { text-decoration:none; }
+  .fee { margin-top:10px; font-size:13px; }
+  .fee summary { cursor:pointer; font-weight:600; }
+  .fee .fee-lines div { color:var(--sub); margin:3px 0; }
+  .fee .fee-src { margin-top:6px; font-size:12px; }
+  .court-actions { display:flex; gap:6px; margin-top:6px; }
+  .mini { font-size:11px; padding:2px 10px; color:var(--sub); }
+  .t.off { background:transparent; border:1px dashed var(--accent); }
+  .offnote { margin-top:10px; padding:8px 10px; border-radius:10px; background:var(--chip); color:var(--text); font-size:12px; line-height:1.6; }
+  a.t:active, a.t:hover { filter:brightness(.95); }
+  .card h2 a, .court a.cn { color:inherit; text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; }
+  .card h2 a::after, .court a.cn::after { content:" ↗"; font-size:.7em; color:var(--sub); }
+  .hint { color:var(--sub); font-size:12px; padding:0 2px; }
+  .btn.tel { margin:6px 8px 0 0; }
+  .note { color:var(--sub); font-size:12px; margin-top:8px; }
+  .card.none summary, .card.unpub summary { cursor:pointer; font-weight:700; }
+  .card.unpub { border-style:dashed; }
+  .reason-title { margin-bottom:6px; }
+  .reason-row { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-top:1px solid var(--line); font-size:14px; }
+  .reason-row small { color:var(--sub); white-space:nowrap; }
+  .card.none h2 { color:var(--sub); font-weight:600; }
+  .empty, .err { text-align:center; color:var(--sub); padding:32px 0; }
+  .err { color:#c0392b; font-size:13px; }
+  #banner { display:none; margin:0 16px 8px; padding:8px 12px; border-radius:10px; font-size:13px; line-height:1.5; }
+  #banner.show { display:block; }
+  #banner.info { background:var(--chip); color:var(--accent); }
+  #banner.warn { background:#fff4e0; color:#8a5a00; }
+  #banner.error { background:#fdeaea; color:#b03030; }
+  @media (prefers-color-scheme: dark) { #banner.warn { background:#3a2f12; color:#f0c674; } #banner.error { background:#3a1b1b; color:#ff9d9d; } }
+  #banner button { margin-left:8px; padding:2px 10px; font-size:12px; }
+  .spin { display:inline-block; width:12px; height:12px; margin-right:6px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; vertical-align:-2px; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation:none; } }
+  #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--text); color:var(--bg); padding:8px 16px; border-radius:999px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .3s; z-index:5; }
+  #toast.show { opacity:.92; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎾 テニスコート空き検索</h1>
+  <div id="updated">読み込み中…</div>
+  <div class="actions">
+    <button type="button" id="btnReload">↻ 最新を読み込む</button>
+    <button type="button" id="btnRefresh" hidden>⟳ 空き状況を取得し直す</button>
+  </div>
+</header>
+<div class="bar">
+  <div class="row" id="days"></div>
+  <div class="row" id="cities"></div>
+  <div class="row" id="zones"></div>
+</div>
+<div id="banner" role="status" aria-live="polite"></div>
+<main id="list"><div class="empty"><span class="spin"></span>読み込み中…</div></main>
+<div id="toast" role="status"></div>
+<script>
+const $ = (id) => document.getElementById(id);
+const WD = ["日","月","火","水","木","金","土"];
+const ZONES = { "all":["すべて",0,24], "am":["午前",0,12], "pm":["午後",12,17], "ev":["夜",17,24] };
+const st = { date:null, city:"all", zone:"all" };
+let data = { slots:[], sites:[], links:[], errors:[] };
+let justImported = false;
+let imported = null; // ユーザーが自分のブラウザで取り込んだ空き(この端末だけに保存)
+const IMPORT_KEY = "courtImport";
+const STALE_MS = 24 * 3600e3;
+
+// 取り込みデータの検証。#hash は誰でも書き換えられるので、型と範囲を確かめてから使う
+function validateImport(x) {
+  if (!x || x.source !== "import" || !Array.isArray(x.slots) || x.slots.length > 5000) return null;
+  const slots = [];
+  for (const s of x.slots) {
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s.date) || typeof s.site !== "string" || typeof s.facility !== "string" || typeof s.court !== "string") continue;
+    if (!(s.start >= 0 && s.end <= 30 && s.start < s.end)) continue;
+    slots.push({ date:s.date, site:s.site.slice(0, 30), facility:s.facility.slice(0, 60), court:s.court.slice(0, 60), start:+s.start, end:+s.end });
+  }
+  const t = Date.parse(x.importedAt);
+  return slots.length && !isNaN(t) ? { source:"import", importedAt:new Date(t).toISOString(), slots } : null;
+}
+function loadImport() {
+  // ブックマークレットが #import=<base64> で渡してくる
+  const m = location.hash.match(/^#import=([A-Za-z0-9+/=_-]+)$/);
+  if (m) {
+    try {
+      const imp = validateImport(JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,"+").replace(/_/g,"/"))))));
+      if (imp) { localStorage.setItem(IMPORT_KEY, JSON.stringify(imp)); justImported = true; }
+    } catch {}
+    history.replaceState(null, "", location.pathname + location.search); // URL からデータを消す
+  }
+  try { return validateImport(JSON.parse(localStorage.getItem(IMPORT_KEY) || "null")); } catch { return null; }
+}
+
+const hm = (h) => { const m = Math.round((h % 1) * 60); return Math.floor(h) + (m ? ":" + String(m).padStart(2,"0") : ""); };
+
+// 施設の予約サイトのURL。施設ごとに分かればそれ、なければエリアの入口(木津川市など)
+const urlFor = (site, facility) => {
+  const u = (data.facilityUrls || {})[site + "|" + facility] || ((data.links || []).find(l => l.name === site) || {}).entryUrl;
+  return typeof u === "string" && /^https?:\/\//.test(u) ? u : null;
+};
+const telHref = (t) => "tel:" + t.replace(/[^0-9+]/g, "");
+// 公式サイト(奈良市・生駒市)の検索フォームへ、選んだ日付と目的コードを入れて送信する。
+// 公式の画面で「日付を選ぶ→テニスを選ぶ→検索」と操作した状態と同じ結果が、新しいタブで開く。
+function postFor(site, facility, court) {
+  const pl = (data.postLinks || {})[site];
+  if (!pl) return null;
+  const cc = data.courtCodes || {};
+  let code = court ? cc[site + "|" + facility + "|" + court] : null;
+  if (!code) { const pre = site + "|" + facility + "|"; const k = Object.keys(cc).find(x => x.startsWith(pre)); code = k ? cc[k] : null; }
+  return code ? { url: pl.url, type: pl.type, code } : null;
+}
+function submitSearch(post, date) {
+  const [y, m, d] = date.split("-");
+  const form = document.createElement("form");
+  form.method = "POST"; form.action = post.url; form.target = "_blank"; form.rel = "noopener noreferrer";
+  form.style.display = "none";
+  const fields = { op: "srch_mkt", UseYM: y + m, UseDay: String(Number(d)), UseDate: y + m + d, Type: post.type, MokutekiCode: post.code, disp_span: "0", searchBtn: "" };
+  for (const [k, v] of Object.entries(fields)) { const i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = v; form.appendChild(i); }
+  document.body.appendChild(form); form.submit(); form.remove();
+}
+// ---- 料金(公式の原本で確認できたものだけ。ない施設は、公式ページへのリンク) --------
+const feeFor = (site, facility) => (data.fees || []).find(r => r.site === site && facility.includes(r.match));
+const feeLinkFor = (site, facility) => (data.feeLinks || []).find(r => r.site === site && facility.includes(r.match));
+function feeBlock(site, facility) {
+  const fee = feeFor(site, facility);
+  if (fee) {
+    const det = document.createElement("details"); det.className = "fee";
+    const sum = document.createElement("summary"); sum.textContent = "料金: " + fee.summary; det.appendChild(sum);
+    const lines = document.createElement("div"); lines.className = "fee-lines";
+    for (const t of fee.lines) { const d = document.createElement("div"); d.textContent = t; lines.appendChild(d); }
+    det.appendChild(lines);
+    const [, m, d] = fee.checkedAt.split("-").map(Number);
+    const src = document.createElement("div"); src.className = "fee-src";
+    src.append("出典: ", anchor(fee.source.url, fee.source.label), `(確認日 ${m}/${d}。料金は改定されることがあります。最新は、公式の案内で確認してください)`);
+    det.appendChild(src);
+    return det;
+  }
+  const fl = feeLinkFor(site, facility);
+  if (fl) {
+    const d = document.createElement("div"); d.className = "fee";
+    d.append("料金は、公式ページで確認してください: ", anchor(fl.url, "施設の案内ページ"));
+    return d;
+  }
+  return null;
+}
+
+// ---- 空き枠の共有・コピー ------------------------------------------------
+const fmtT = (h) => Math.floor(h) + ":" + String(Math.round((h % 1) * 60)).padStart(2, "0");
+function dateLabel(d) {
+  const [y, m, dd] = d.split("-").map(Number);
+  return `${m}/${dd}(${WD[new Date(Date.UTC(y, m - 1, dd)).getUTCDay()]})`;
+}
+/** LINE やメモに貼れる文。ネット予約の受付外(☎)の枠は、そう分かるようにして、電話番号も付ける */
+function shareText({ facility, court, date, spans, url, tel }) {
+  const times = spans.map(x => `${fmtT(x.start)}〜${fmtT(x.end)}${x.offline ? "(ネット予約外・電話)" : ""}`).join(" / ");
+  const lines = ["【テニスコートの空き】", `${dateLabel(date)} ${facility} ${court}`, times];
+  if (tel && spans.some(x => x.offline)) lines.push("電話: " + tel);
+  if (url) lines.push("予約サイト: " + url);
+  return lines.join("\n");
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch {}
+  try { // 古いブラウザ向けの保険
+    const ta = document.createElement("textarea"); ta.value = t; ta.style.cssText = "position:fixed;opacity:0";
+    document.body.appendChild(ta); ta.select(); const ok = document.execCommand("copy"); ta.remove(); return ok;
+  } catch { return false; }
+}
+function miniButton(label, aria, onclick) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "mini"; b.textContent = label; b.setAttribute("aria-label", aria); b.onclick = onclick;
+  return b;
+}
+
+function anchor(url, text, cls, title, post) {
+  const a = document.createElement("a");
+  a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
+  if (cls) a.className = cls;
+  if (post) {
+    title = (title || "") + (title ? "。" : "") + "この日のテニスの空き一覧が開きます";
+    a.addEventListener("click", (e) => { e.preventDefault(); if (st.date) submitSearch(post, st.date); else window.open(url, "_blank", "noopener"); });
+  }
+  if (title) { a.title = title; a.setAttribute("aria-label", title); }
+  a.textContent = text;
+  return a;
+}
+
+function chips(el, items, key) {
+  el.innerHTML = "";
+  for (const [v, label] of items) {
+    const b = document.createElement("button");
+    b.textContent = label; b.setAttribute("aria-pressed", st[key] === v);
+    b.onclick = () => { st[key] = v; render(); };
+    el.appendChild(b);
+  }
+}
+
+// 日本時間の「今日」と「いまの時刻(時)」。今日の、すでに終わった時間の枠は、出さない
+function nowJst() {
+  const j = new Date(Date.now() + 9 * 3600e3);
+  return { today: j.toISOString().slice(0, 10), hour: j.getUTCHours() + j.getUTCMinutes() / 60 };
+}
+
+function render() {
+  const { today: todayJ, hour: hourJ } = nowJst();
+  const isPast = (x) => x.date === todayJ && x.end <= hourJ;
+  const vis = data.slots.filter(x => !isPast(x));   // 表示する枠(終わった枠を除く)
+  // 日付ストリップ(空きがある日にマーク)
+  const dates = [...new Set([...data.slots.map(s => s.date), ...(data.status || []).map(x => x.d)])].sort();
+  if (!st.date || !dates.includes(st.date)) st.date = dates[0] || null;
+  $("days").innerHTML = "";
+  for (const d of dates) {
+    // 端末のタイムゾーンに左右されないよう、日付文字列から直接作る
+    const [yy, mm, dd] = d.split("-").map(Number);
+    const dt = new Date(Date.UTC(yy, mm - 1, dd)), w = dt.getUTCDay();
+    const b = document.createElement("button");
+    b.className = "day " + (w === 6 ? "sat" : w === 0 ? "sun" : "");
+    b.innerHTML = `<small>${WD[w]}</small><b>${dt.getUTCMonth()+1}/${dt.getUTCDate()}</b>`;
+    b.setAttribute("aria-pressed", st.date === d);
+    b.onclick = () => { st.date = d; render(); };
+    $("days").appendChild(b);
+  }
+  chips($("cities"), [["all","全エリア"], ...data.sites.map(s => [s, s])], "city");
+  chips($("zones"), Object.entries(ZONES).map(([k, v]) => [k, v[0]]), "zone");
+
+  const [, z0, z1] = ZONES[st.zone];
+  const hits = vis.filter(s => s.date === st.date && (st.city === "all" || s.site === st.city) && s.start < z1 && s.end > z0);
+  const byFac = new Map();
+  for (const s of hits) {
+    const k = s.site + "|" + s.facility;
+    if (!byFac.has(k)) byFac.set(k, { site:s.site, facility:s.facility, courts:new Map() });
+    const c = byFac.get(k).courts;
+    if (!c.has(s.court)) c.set(s.court, []);
+    c.get(s.court).push(s);
+  }
+  const list = $("list");
+  list.innerHTML = "";
+  if (byFac.size) {
+    const hint = document.createElement("div"); hint.className = "hint";
+    hint.textContent = "コート名や時間をタップすると、予約サイトが開きます(奈良市・生駒市は、この日のテニスの空き一覧が最初から表示されます。ほかは、施設の予約画面までで、日時は予約サイト側で選び直してください)。" + (hits.some(x => x.offline) ? "点線(☎)の枠は、ネット予約の受付外です(電話・窓口)。" : "") + (st.date === todayJ && data.slots.some(x => x.date === todayJ && isPast(x)) ? "今日の、すでに終わった時間の枠は、表示していません。" : "");
+    list.appendChild(hint);
+  }
+  for (const f of byFac.values()) {
+    const card = document.createElement("section");
+    card.className = "card";
+    card.innerHTML = `<div class="city">${f.site}</div><h2></h2>`;
+    const fUrl = urlFor(f.site, f.facility);
+    const h2 = card.querySelector("h2");
+    if (fUrl) h2.appendChild(anchor(fUrl, f.facility, "", "予約サイトを開く", postFor(f.site, f.facility)));
+    else h2.textContent = f.facility;
+    const fNote = (data.facilityNotes || {})[f.site + "|" + f.facility];
+    if (fNote) { const nn = document.createElement("div"); nn.className = "city"; nn.textContent = fNote; h2.insertAdjacentElement("afterend", nn); }
+    for (const [court, ss] of f.courts) {
+      const row = document.createElement("div");
+      row.className = "court";
+      const name = document.createElement("span");
+      if (fUrl) name.appendChild(anchor(fUrl, court, "cn", court + "の予約サイトを開く", postFor(f.site, f.facility, court)));
+      else name.textContent = court;
+      const times = document.createElement("span"); times.className = "times";
+      // 連続する枠(9-10, 10-11 …)は 1 つにまとめる。ネット予約できる枠と、受付外(●・電話)の枠は分けて結合する
+      const merged = [];
+      for (const s of ss.sort((a, b) => a.start - b.start)) {
+        const last = merged.filter(m => !!m.offline === !!s.offline).pop();
+        if (last && s.start <= last.end) last.end = Math.max(last.end, s.end);
+        else merged.push({ start: s.start, end: s.end, offline: !!s.offline });
+      }
+      merged.sort((a, b) => a.start - b.start || a.end - b.end);
+      for (const s of merged) {
+        const label = `${hm(s.start)}–${hm(s.end)}`;
+        const cls = "t" + (s.offline ? " off" : "");
+        const text = s.offline ? label + " ☎" : label;
+        const title = s.offline ? `${court} ${label}(ネット予約は受付外・電話や窓口で予約)` : `${court} ${label} の予約サイトを開く`;
+        if (fUrl) times.appendChild(anchor(fUrl, text, cls, title, postFor(f.site, f.facility, court)));
+        else { const t = document.createElement("span"); t.className = cls; t.textContent = text; times.appendChild(t); }
+      }
+      // コピー・共有(友達に「ここどう?」と送る、メモに残す、など)
+      const ct = (data.contacts || {})[f.site + "|" + f.facility];
+      const text = shareText({ facility: f.facility, court, date: st.date, spans: merged, url: fUrl, tel: ct && ct.tel });
+      const act = document.createElement("span"); act.className = "court-actions";
+      act.appendChild(miniButton("コピー", court + "の空きをコピー", async () => toast((await copyText(text)) ? "コピーしました" : "コピーできませんでした")));
+      if (navigator.share) act.appendChild(miniButton("共有", court + "の空きを共有", async () => { try { await navigator.share({ text }); } catch {} }));
+      name.appendChild(act);
+      row.append(name, times); card.appendChild(row);
+    }
+    if ([...f.courts.values()].some(ss => ss.some(x => x.offline))) {
+      const box = document.createElement("div"); box.className = "offnote";
+      const msg = document.createElement("div");
+      msg.textContent = "点線(☎)の枠は空きですが、ネット予約の受付外です。電話や窓口でお申し込みください。";
+      box.appendChild(msg);
+      const ct = (data.contacts || {})[f.site + "|" + f.facility];
+      if (ct && ct.tel) {
+        if (ct.unconfirmed && ct.via) { const w = document.createElement("div"); w.textContent = "この施設の電話番号は確認できていません。まず " + ct.via + " にお問い合わせください。"; box.appendChild(w); }
+        const a = document.createElement("a");
+        a.href = telHref(ct.tel); a.className = "btn tel";
+        a.textContent = "☎ " + (ct.via ? ct.via + " " : "") + ct.tel;
+        box.appendChild(a);
+        if (ct.hours) { const h = document.createElement("span"); h.style.marginLeft = "4px"; h.textContent = ct.hours; box.appendChild(h); }
+      } else {
+        const w = document.createElement("div"); w.textContent = "電話番号は未登録です。市の公式ページで確認してください。"; box.appendChild(w);
+      }
+      card.appendChild(box);
+    }
+    const feeEl = feeBlock(f.site, f.facility);
+    if (feeEl) card.appendChild(feeEl);
+    list.appendChild(card);
+  }
+  // 空きがない施設は、理由ごとに分けて表示する
+  //  full=すべて予約済み / closed=休館・利用不可 / unpub=予約アプリにまだ枠が出ていない(分からない)
+  const key = (x) => x.s + "|" + x.f;
+  const openInZone = new Set(hits.map(s => s.site + "|" + s.facility));
+  const openToday = new Set(data.slots.filter(s => s.date === st.date).map(s => s.site + "|" + s.facility));
+  const cityOk = (site) => st.city === "all" || site === st.city;
+  const reasons = { full: new Map(), closed: new Map(), unpub: new Map() };
+  for (const x of (data.status || [])) {
+    if (x.d !== st.date || !cityOk(x.s)) continue;
+    const k = key(x);
+    if (openInZone.has(k)) continue;                                      // カードで表示済み
+    reasons[openToday.has(k) ? "full" : x.t].set(k, { site: x.s, facility: x.f, label: x.l });
+  }
+  // 他の時間帯には空きがあるが、選んだ時間帯にはない施設
+  for (const s of data.slots) {
+    if (s.date !== st.date || !cityOk(s.site)) continue;
+    const k = s.site + "|" + s.facility;
+    if (!openInZone.has(k)) reasons.full.set(k, { site: s.site, facility: s.facility });
+  }
+  const zoneNote = st.zone === "all" ? "" : "(" + ZONES[st.zone][0] + ")";
+  const reasonCard = (title, lead, items, cls) => {
+    if (!items.size) return;
+    const card = document.createElement("section");
+    card.className = "card " + cls;
+    const det = document.createElement("details");
+    det.open = items.size <= 5;
+    const sum = document.createElement("summary");
+    sum.className = "reason-title"; sum.textContent = `${title}(${items.size}施設)`;
+    det.appendChild(sum);
+    if (lead) { const l = document.createElement("div"); l.className = "city"; l.textContent = lead; det.appendChild(l); }
+    for (const it of [...items.values()].sort((a, b) => a.site.localeCompare(b.site, "ja"))) {
+      const row = document.createElement("div"); row.className = "reason-row";
+      const url = urlFor(it.site, it.facility);
+      const name = url ? anchor(url, it.facility, "cn", it.facility + "の予約サイトを開く", postFor(it.site, it.facility)) : document.createTextNode(it.facility);
+      const area = document.createElement("small"); area.textContent = it.site + (it.label ? "・" + it.label : "");
+      row.append(name, area);
+      det.appendChild(row);
+    }
+    card.appendChild(det);
+    list.appendChild(card);
+  };
+  reasonCard("まだ空きが公開されていません", "予約アプリに、この日の枠がまだ出ていません。空いているかどうかは、各施設の予約サイトで確認してください。", reasons.unpub, "unpub");
+  reasonCard("空きなし" + zoneNote, "", reasons.full, "none");
+  reasonCard("休館・利用不可", "", reasons.closed, "none");
+
+  // 自動取得できない地域は、公式サイトへのリンクを出す
+  for (const l of (data.links || [])) {
+    if (st.city !== "all" && st.city !== l.name) continue;
+    const card = document.createElement("section");
+    card.className = "card link";
+    const head = document.createElement("div"); head.className = "city"; head.textContent = l.name + "(自動取得なし)";
+    const h2 = document.createElement("h2"); h2.textContent = "公式サイトで空きを確認";
+    card.append(head, h2);
+    if (l.facilities && l.facilities.length) {
+      const box = document.createElement("div"); box.className = "city";
+      for (const f of l.facilities) {
+        const row = document.createElement("div");
+        const fee = feeFor(l.name, f.name);
+        row.textContent = f.name + (f.hint ? "(" + f.hint + ")" : "") + (fee ? " … " + fee.summary : "");
+        box.appendChild(row);
+      }
+      card.appendChild(box);
+    }
+    const a = document.createElement("a");
+    a.href = l.entryUrl; a.target = "_blank"; a.rel = "noopener noreferrer"; a.className = "btn";
+    a.textContent = "予約サイトを開く ↗";
+    card.appendChild(a);
+    const imp = document.createElement("a");
+    imp.href = "bookmarklet.html"; imp.className = "city"; imp.style.cssText = "display:block;margin-top:8px";
+    imp.textContent = "空きをこのアプリに取り込む方法 →";
+    card.appendChild(imp);
+    if (imported && imported.slots.some(s => s.site === l.name)) {
+      const t = new Date(imported.importedAt);
+      const stale = Date.now() - t.getTime() > STALE_MS;
+      const n = document.createElement("div");
+      n.className = "city";
+      n.textContent = `この端末で取り込み済み: ${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}` + (stale ? "(古い可能性があります)" : "");
+      card.appendChild(n);
+    }
+    list.appendChild(card);
+  }
+  if (data.errors.length) {
+    const e = document.createElement("div"); e.className = "err";
+    e.textContent = `取得に失敗した日があります(${data.errors.length}件)。空き表示が不完全な可能性があります。`;
+    list.appendChild(e);
+  }
+}
+
+// アプリを開いたまま取り込みが来た場合(ハッシュだけが変わる)も読み直す
+window.addEventListener("hashchange", () => { if (/^#import=/.test(location.hash)) location.reload(); });
+
+// ---- 更新状況の表示 ----------------------------------------------------
+// 自動更新は UTC の 0,3,6,…時 17分(日本時間では 9,12,15,18,21,0,3,6時の17分)に動く。
+// 実行は数分〜数十分遅れることがあるので「目安」として扱う。
+const EVERY_MS = 3 * 3600e3, MINUTE_MS = 17 * 60e3;
+const UPDATING_WINDOW_MS = 40 * 60e3; // 予定時刻からこの間は「更新中かも」と案内する
+const DATA_STALE_MS = 6 * 3600e3; // data.json がこれより古いと警告
+const hhmm = (t) => `${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}`;
+const mdhm = (t) => `${t.getMonth()+1}/${t.getDate()} ${hhmm(t)}`;
+
+function scheduleOf(now) {
+  const last = Math.floor((now - MINUTE_MS) / EVERY_MS) * EVERY_MS + MINUTE_MS;
+  return { last, next: last + EVERY_MS };
+}
+/** "fresh" | "updating" | "stale" を返す(純粋関数) */
+function freshness(updatedAt, now) {
+  const { last } = scheduleOf(now);
+  if (updatedAt < last && now - last < UPDATING_WINDOW_MS) return "updating";
+  if (now - updatedAt > DATA_STALE_MS) return "stale";
+  return "fresh";
+}
+
+function showBanner(kind, html) {
+  const b = $("banner");
+  b.className = kind ? "show " + kind : "";
+  b.innerHTML = html || "";
+}
+let toastTimer;
+function toast(msg) {
+  const el = $("toast"); el.textContent = msg; el.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 3500);
+}
+
+let pollTimer = null, pollUntil = 0, lastUpdatedAt = 0;
+function applyStatus(updatedAtMs) {
+  const now = Date.now();
+  const t = new Date(updatedAtMs), next = new Date(scheduleOf(now).next);
+  $("updated").textContent = `最終更新 ${mdhm(t)} ・ 次の更新は ${hhmm(next)} 頃`;
+  const f = freshness(updatedAtMs, now);
+  if (f === "updating") {
+    showBanner("info", '<span class="spin"></span>データを更新中です。数分で反映されます(自動で確認しています)。<button type="button" onclick="load(false)">今すぐ確認</button>');
+    if (!pollTimer) { pollUntil = now + 20 * 60e3; pollTimer = setInterval(() => { if (Date.now() > pollUntil) stopPoll(); else load(true); }, 45e3); }
+  } else {
+    stopPoll();
+    if (f === "stale") {
+      const h = Math.floor((now - updatedAtMs) / 3600e3);
+      showBanner("warn", `データが古い可能性があります(最終更新から約${h}時間)。更新が止まっているかもしれません。<button type="button" onclick="load(false)">再読み込み</button>`);
+    } else showBanner("", "");
+  }
+}
+function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+// ---- 読み込み ----------------------------------------------------------
+// 小さな形式(v2)を、画面が使う「1枠ごとの配列」に戻す。data.json の枠と同じ形
+function expandV2(d) {
+  const out = [];
+  for (const [date, list] of Object.entries(d.byDate || {})) {
+    for (const [ci, start, end, off] of list) {
+      const c = d.courts[ci]; if (!c) continue;
+      out.push({ date, site: c[0], facility: c[1], court: c[2], start, end, ...(off ? { offline: true } : {}) });
+    }
+  }
+  return out;
+}
+async function fetchData() {
+  let r = await fetch("data2.json", { cache: "no-store" });
+  if (!r.ok) r = await fetch("data.json", { cache: "no-store" }); // v2 がまだ無い場合の保険
+  if (!r.ok) throw new Error(r.status);
+  const d = await r.json();
+  if (d.v === 2) d.slots = expandV2(d);
+  return d;
+}
+
+function load(silent) {
+  if (!silent) showBanner("info", '<span class="spin"></span>読み込み中…');
+  return fetchData().then(d => {
+    const updatedAt = Date.parse(d.updatedAt);
+    const firstLoad = !lastUpdatedAt;
+    const changed = updatedAt !== lastUpdatedAt;
+    if (silent && !changed) return false; // 新しいデータがまだ → そのまま待つ
+    data = d;
+    data.links = data.links || [];
+    imported = loadImport();
+    if (imported) {
+      const today = new Date(Date.now() + 9*3600e3).toISOString().slice(0, 10);
+      data.slots = data.slots.concat(imported.slots.filter(s => s.date >= today));
+      for (const s of imported.slots) if (!data.sites.includes(s.site)) data.sites.push(s.site);
+    }
+    lastUpdatedAt = updatedAt;
+    render();
+    applyStatus(updatedAt);
+    if (justImported) { toast("木津川市の空きを取り込みました"); justImported = false; }
+    else if (!firstLoad && changed) toast("最新のデータに更新しました");
+    return changed;
+  }).catch(() => {
+    if (silent) return null; // 自動確認の失敗は静かに無視(次回また試す)
+    $("updated").textContent = "";
+    if (!lastUpdatedAt) $("list").innerHTML = "";
+    showBanner("error", 'データを読み込めませんでした。通信状況を確認してください。<button type="button" onclick="load(false)">再試行</button>');
+    return null;
+  });
+}
+
+// アプリを開いたまま取り込みが来た場合(ハッシュだけが変わる)も読み直す
+window.addEventListener("hashchange", () => { if (/^#import=/.test(location.hash)) location.reload(); });
+// ページに戻ってきたとき(スマホで別アプリから戻る等)に、更新中・古い状態を見直す
+document.addEventListener("visibilitychange", () => { if (!document.hidden && lastUpdatedAt) load(true); });
+// ---- ① 最新を読み込む(公開サイトの最新データを、画面に読み込み直す) ----------
+$("btnReload").onclick = async () => {
+  const b = $("btnReload"); b.disabled = true; b.textContent = "読み込み中…";
+  const r = await load(true);
+  b.disabled = false; b.textContent = "↻ 最新を読み込む";
+  if (r === null) toast("読み込めませんでした。通信状況を確認してください");
+  else if (r === false) toast("すでに最新のデータです");
+};
+
+// ---- ② 空き状況を取得し直す(中継役を通して、GitHub の取得を起動する) ---------
+// 画面に GitHub の鍵は置けないので、鍵を持つ中継役(worker/)に頼む。合言葉が必要。
+// 中継役のURLは、公開サイトの refresh-config.json に書かれていれば、このボタンが出る。
+let refreshUrl = null;
+const storeGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const storeSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch {} };
+fetch("refresh-config.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(c => {
+  if (c && typeof c.url === "string" && /^https:\/\//.test(c.url)) { refreshUrl = c.url.replace(/\/+$/, ""); $("btnRefresh").hidden = false; }
+}).catch(() => {});
+
+function startPolling(ms) {
+  pollUntil = Date.now() + ms;
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    if (Date.now() > pollUntil) {
+      stopPoll();
+      showBanner("warn", "取得に時間がかかっています。しばらくしてから「最新を読み込む」を押してください。うまくいかないときは、更新に失敗した可能性があります。");
+    } else load(true);
+  }, 45e3);
+}
+
+$("btnRefresh").onclick = async () => {
+  if (!refreshUrl) return;
+  let pass = storeGet("refreshPass");
+  if (!pass) { pass = (prompt("合言葉を入力してください(3人で共有しているもの)") || "").trim(); if (!pass) return; }
+  const b = $("btnRefresh"); b.disabled = true;
+  showBanner("info", '<span class="spin"></span>取得を依頼しています…');
+  try {
+    const r = await fetch(refreshUrl + "/refresh", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ passcode: pass }) });
+    if (r.status === 401) { storeSet("refreshPass", null); showBanner("error", "合言葉が違います。もう一度ボタンを押して、入力し直してください。"); return; }
+    if (!r.ok) throw new Error(r.status);
+    storeSet("refreshPass", pass); // この端末に覚えておく(次回から入力不要)
+    const j = await r.json();
+    if (j.result === "cooldown") {
+      showBanner("warn", `さきほど更新したばかりです。あと約${Math.max(1, Math.ceil(j.waitSec / 60))}分後に、もう一度押せます。`);
+      setTimeout(() => { if ($("banner").classList.contains("warn")) showBanner("", ""); }, 8000);
+      return;
+    }
+    showBanner("info", '<span class="spin"></span>' + (j.result === "running"
+      ? "すでに取得中です。終わると、新しい内容に変わります(自動で確認しています)。"
+      : "空き状況の取得を開始しました。約5〜10分で、新しい内容に変わります(自動で確認しています)。"));
+    startPolling(20 * 60e3);
+  } catch {
+    showBanner("error", "取得の依頼に失敗しました。時間をおいて、もう一度お試しください。");
+  } finally { b.disabled = false; }
+};
+
+load(false);
+</script>
+</body>
+</html>
