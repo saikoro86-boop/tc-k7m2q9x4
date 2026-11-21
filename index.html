@@ -1,0 +1,1133 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>テニスコート空き検索</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f8a4c">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="テニス空き">
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c1f24; --sub:#636b78; --accent:#1a7a43; --on-accent:#fff; --line:#e3e6ea; --chip:#e9f5ee; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#14171a; --card:#1d2126; --text:#eceff3; --sub:#9aa3af; --accent:#4cc27f; --on-accent:#0b1f14; --line:#2c3238; --chip:#1f3a2b; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 -apple-system,"Hiragino Sans",sans-serif; }
+  header { padding:16px; }
+  h1 { margin:0; font-size:20px; }
+  #updated { color:var(--sub); font-size:12px; }
+  [hidden] { display:none !important; }
+  .actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .actions button { font-size:13px; padding:5px 12px; }
+  .actions button:disabled { opacity:.6; cursor:default; }
+  .bar { position:sticky; top:0; background:var(--bg); padding:8px 16px; border-bottom:1px solid var(--line); z-index:2; }
+  .row { display:flex; gap:8px; overflow-x:auto; padding:4px 0; scrollbar-width:none; }
+  .row::-webkit-scrollbar { display:none; }
+  button { font:inherit; border:1px solid var(--line); background:var(--card); color:var(--text); border-radius:999px; padding:6px 14px; white-space:nowrap; cursor:pointer; }
+  button[aria-pressed="true"] { background:var(--accent); border-color:var(--accent); color:var(--on-accent); }
+  .day { display:flex; flex-direction:column; align-items:center; min-width:54px; border-radius:12px; padding:6px 8px; line-height:1.25; }
+  .day small { font-size:11px; opacity:.8; }
+  .day b { font-size:12px; margin-top:2px; }
+  .sat small { color:#2563eb; } .sun small { color:#dc2626; }
+  .day[aria-pressed="true"] small { color:var(--on-accent); }
+  main { padding:12px 16px 40px; display:grid; gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; }
+  .card h2 { margin:0 0 2px; font-size:16px; }
+  .city { color:var(--sub); font-size:12px; }
+  .court { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-top:1px solid var(--line); }
+  .court:first-of-type { border-top:0; }
+  .court > span:first-child { flex:1 1 40%; }
+  .times { flex:1 1 60%; display:flex; flex-wrap:wrap; gap:4px; justify-content:flex-end; }
+  .t { background:var(--chip); color:var(--accent); border-radius:6px; padding:1px 8px; font-size:13px; font-weight:600; }
+  .btn { display:inline-block; margin-top:10px; padding:8px 16px; border-radius:999px; background:var(--accent); color:var(--on-accent); text-decoration:none; font-weight:600; }
+  .card.link .city + h2 + .city { margin:2px 0 0; }
+  a.t { text-decoration:none; }
+  .fee { margin-top:10px; font-size:13px; }
+  .fee summary { cursor:pointer; font-weight:600; }
+  .fee .fee-lines div { color:var(--sub); margin:3px 0; }
+  .fee .fee-src { margin-top:6px; font-size:12px; }
+  .court-actions { display:flex; gap:6px; margin-top:6px; }
+  .mini { font-size:11px; padding:2px 10px; color:var(--sub); }
+  .t.off { background:transparent; border:1px dashed var(--accent); }
+  .offnote { margin-top:10px; padding:8px 10px; border-radius:10px; background:var(--chip); color:var(--text); font-size:12px; line-height:1.6; }
+  a.t:active, a.t:hover { filter:brightness(.95); }
+  .card h2 a, .court a.cn { color:inherit; text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; }
+  .card h2 a::after, .court a.cn::after { content:" ↗"; font-size:.7em; color:var(--sub); }
+  .hint { color:var(--sub); font-size:12px; padding:0 2px; }
+  .btn.tel { margin:6px 8px 0 0; }
+  .row[hidden] { display:none; }
+  .t.fresh { box-shadow:0 0 0 2px #f59e0b inset; }
+  .night { margin-top:8px; font-size:12px; color:var(--text); background:var(--chip); border-radius:10px; padding:6px 10px; }
+  .day .wx { display:block; font-size:10px; color:var(--sub); margin-top:1px; }
+  button[aria-pressed="true"] .wx { color:var(--on-accent); }
+  .wx-h { margin-left:8px; font-size:13px; font-weight:400; color:var(--sub); }
+  #filterbar { flex-wrap:wrap; gap:6px; }
+  #filterbar button { font-size:13px; padding:4px 10px; }
+  #install { display:flex; align-items:flex-start; gap:8px; justify-content:space-between; margin-top:8px; padding:8px 10px; border-radius:12px; background:var(--chip); font-size:13px; }
+  #install[hidden] { display:none; }
+  .card.multi h2.mday { font-size:15px; margin-bottom:6px; }
+  .card.multi h2.sat { color:#2563eb; } .card.multi h2.sun { color:#dc2626; }
+  .mrow { display:flex; align-items:center; gap:6px; padding:6px 0; border-top:1px solid var(--line); }
+  main > * { min-width:0; }
+  .sep { flex:0 0 1px; background:var(--line); margin:4px 2px; }
+  .mmain { white-space:normal; flex:1; min-width:0; text-align:left; background:none; border:0; padding:4px 0; font:inherit; color:inherit; cursor:pointer; }
+  .mname { display:block; font-weight:600; font-size:14px; }
+  .msub { display:block; font-size:12px; color:var(--sub); margin-top:2px; }
+  .dist { color:var(--accent); font-weight:600; }
+  .fav { border:0; background:none; padding:0 6px 0 0; font-size:20px; line-height:1; color:var(--sub); cursor:pointer; vertical-align:-2px; }
+  .fav.on { color:#e0a800; }
+  .card-foot { display:flex; justify-content:flex-end; margin-top:8px; }
+  .hide-btn { border:1px solid var(--line); border-radius:999px; background:none; }
+  .fee-cc.ok { color:var(--accent); }
+  .fee-cc.warn { color:#b45309; }
+  .btn.route { margin:0 0 0 8px; padding:3px 10px; font-size:12px; vertical-align:middle; }
+  .card h2 a.route::after { content:none; }
+  .card h2 a.route { color:var(--on-accent); text-decoration:none; }
+  .route-mini { margin-left:8px; font-size:11px; color:var(--accent); white-space:nowrap; }
+  .note { color:var(--sub); font-size:12px; margin-top:8px; }
+  .card.none summary, .card.unpub summary { cursor:pointer; font-weight:700; }
+  .card.unpub { border-style:dashed; }
+  .reason-title { margin-bottom:6px; }
+  .reason-row { display:flex; justify-content:space-between; gap:8px; padding:6px 0; border-top:1px solid var(--line); font-size:14px; }
+  .reason-row small { color:var(--sub); white-space:nowrap; }
+  .card.none h2 { color:var(--sub); font-weight:600; }
+  .empty, .err { text-align:center; color:var(--sub); padding:32px 0; }
+  .err { color:#c0392b; font-size:13px; }
+  .failnote { padding:8px 12px; border-radius:10px; background:#fff4e0; color:#8a5a00; font-size:13px; line-height:1.5; }
+  #banner { display:none; margin:0 16px 8px; padding:8px 12px; border-radius:10px; font-size:13px; line-height:1.5; }
+  #banner.show { display:block; }
+  #banner.info { background:var(--chip); color:var(--accent); }
+  #banner.warn { background:#fff4e0; color:#8a5a00; }
+  #banner.error { background:#fdeaea; color:#b03030; }
+  @media (prefers-color-scheme: dark) { .failnote { background:#3a2f12; color:#f0c674; } #banner.warn { background:#3a2f12; color:#f0c674; } #banner.error { background:#3a1b1b; color:#ff9d9d; } }
+  #banner button { margin-left:8px; padding:2px 10px; font-size:12px; }
+  .spin { display:inline-block; width:12px; height:12px; margin-right:6px; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; vertical-align:-2px; animation:spin .8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spin { animation:none; } }
+  #toast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:var(--text); color:var(--bg); padding:8px 16px; border-radius:999px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .3s; z-index:5; }
+  #toast.show { opacity:.92; }
+  /* 予定に追加(カレンダー) */
+  #cal { border:0; border-radius:16px 16px 0 0; margin:auto auto 0; width:100%; max-width:520px; padding:0; background:var(--bg); color:var(--text); }
+  #cal .cal-in { padding:16px 16px calc(16px + env(safe-area-inset-bottom)); }
+  #cal::backdrop { background:rgba(0,0,0,.35); }
+  #cal h3 { margin:0 0 4px; font-size:16px; }
+  #cal .cal-sub { color:var(--sub); font-size:12px; margin-bottom:10px; }
+  #cal .cal-time { display:flex; align-items:center; gap:8px; margin:8px 0 12px; font-size:15px; }
+  #cal select { font-size:16px; padding:6px 8px; border-radius:8px; border:1px solid var(--line); background:var(--card, var(--bg)); color:var(--text); }
+  #cal .cal-btns { display:flex; flex-direction:column; gap:8px; }
+  #cal .cal-btns a, #cal .cal-btns button { display:block; text-align:center; padding:12px; border-radius:12px; font-size:15px; font-weight:600; text-decoration:none; border:0; }
+  #cal .cal-g { background:var(--accent); color:var(--on-accent); }
+  #cal .cal-i { background:var(--chip); color:var(--accent); }
+  #cal .cal-x { background:transparent; color:var(--sub); font-weight:400 !important; }
+  #cal .cal-note { color:var(--sub); font-size:12px; margin-top:10px; line-height:1.6; }
+  @media (prefers-color-scheme: dark) {
+    .card.multi h2.sat, .sat small { color:#93c5fd; } .card.multi h2.sun, .sun small { color:#fca5a5; }
+    .day[aria-pressed="true"] small { color:var(--on-accent); }
+  }
+  /* 押しやすさ: 小さいボタンにも指の大きさの余白 */
+  .mini { min-height:36px; padding:4px 14px; font-size:12px; }
+  .court-actions { gap:10px; }
+  .fav { min-width:36px; min-height:36px; padding:0 6px 0 0; text-align:left; }
+  .times { align-items:flex-start; gap:6px; }
+  .t { padding:4px 10px; }
+  .card-foot { justify-content:space-between; align-items:center; gap:8px; }
+  .card-foot .btn.route { margin:0; padding:8px 16px; font-size:14px; }
+  .t.off.flash, .btn.tel.flash { outline:3px solid #f59e0b; outline-offset:2px; }
+  /* 空きなし・受付期間外の一覧: 名前と補足を縦に */
+  .reason-row { align-items:center; justify-content:flex-start; }
+  .reason-row .rname { display:flex; flex-direction:column; min-width:0; flex:1; }
+  .reason-row small { white-space:normal; }
+  .reason-row a.cn { color:inherit; text-decoration:underline; text-decoration-color:var(--line); text-underline-offset:3px; }
+  /* 上に固定するのは日付の行だけ */
+  .controls { padding:4px 16px 8px; border-bottom:1px solid var(--line); }
+  .bar:has(#days[hidden]) { display:none; }
+  #install details summary { cursor:pointer; font-weight:600; }
+  #install ol { margin:6px 0 0; padding-left:1.4em; line-height:1.7; }
+  header { padding:12px 16px 4px; }
+  .controls button { font-size:14px; padding:7px 13px; }
+  .controls .row { padding:3px 0; }
+  .mtimes { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  #viewbar { flex-wrap:wrap; gap:6px; }
+  #viewbar button, #zones button { padding:7px 10px; }
+  #zones { gap:6px; }
+  #viewbar button.on { border-color:var(--accent); color:var(--accent); font-weight:600; }
+  .day small { font-size:12px; } .day .wx { font-size:12px; } .route-mini { font-size:12px; }
+  #toast.act { pointer-events:auto; display:flex; align-items:center; gap:10px; padding:6px 8px 6px 16px; }
+  #toast button { background:transparent; color:inherit; border:1px solid currentColor; padding:6px 12px; font-size:13px; }
+  #cal select { padding:10px 10px; }
+  #banner.info { color:var(--text); }
+  footer.src { color:var(--sub); font-size:12px; padding:0 16px 32px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎾 テニスコート空き検索</h1>
+  <div id="updated">読み込み中…</div>
+  <div class="actions">
+    <button type="button" id="btnReload">↻ 最新を読み込む</button>
+    <button type="button" id="btnRefresh" hidden>⟳ 空き状況を取得し直す</button>
+  </div>
+</header>
+<div class="bar">
+  <div class="row" id="days"></div>
+</div>
+<div class="controls">
+  <div class="row" id="cities"></div>
+  <div class="row" id="zones"></div>
+  <div class="row" id="viewbar"></div>
+  <div class="row" id="filterbar" hidden></div>
+</div>
+<div id="banner" role="status" aria-live="polite"></div>
+<main id="list"><div class="empty"><span class="spin"></span>読み込み中…</div></main>
+<footer class="src">天気: 気象庁の予報(奈良県北部・京都府南部。降水確率は6〜18時の大きいほう) / 施設の位置: テニスナビ・国土地理院</footer>
+<div id="toast" role="status"></div>
+<dialog id="cal" aria-labelledby="cal-title"><div class="cal-in">
+  <h3 id="cal-title">予定に追加</h3>
+  <div class="cal-sub" id="cal-sub"></div>
+  <label class="cal-time"><select id="cal-from" aria-label="開始"></select>〜<select id="cal-to" aria-label="終了"></select></label>
+  <div class="cal-btns">
+    <a id="cal-i" class="cal-g" download="tennis.ics">iPhone のカレンダーに追加</a>
+    <a id="cal-g" class="cal-i" target="_blank" rel="noopener noreferrer">Google カレンダーに追加</a>
+    <button type="button" class="cal-x" id="cal-close">閉じる</button>
+  </div>
+  <div class="cal-note">予約が取れた時間を選んで追加してください(iPhone のカレンダーは1時間前に通知)。</div>
+</div>
+</dialog>
+<script src="app-logic.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+// 画面に触らない処理(日付・時間・距離・枠のまとめ・カレンダーの文)は app-logic.js
+const { WD, weekday, dateLabel, nowJst, visibleDates, hm, fmtT, expandV2, mergeCourtSpans, mergeFacilitySpans, failedAreas, validateImport, mergeImport, importedSlotsToShow, importLabel, haversineKm, shareText, calStamp, googleCalUrl, icsText } = AppLogic;
+const ZONES = { "all":["終日",0,24], "am":["〜12時",0,12], "pm":["12〜17時",12,17], "ev":["17時〜",17,24] };
+const st = { date:null, city:"all", zone:"all", favOnly:false };
+// ---- お気に入り・非表示(このスマホだけに保存。ほかの人とは共有しない) ----
+const PREF_KEY = "courtPrefs";
+const prefs = (() => {
+  try { const p = JSON.parse(localStorage.getItem(PREF_KEY) || "{}");
+    return { fav: new Set(Array.isArray(p.fav) ? p.fav : []), hidden: new Set(Array.isArray(p.hidden) ? p.hidden : []), favOnly: !!p.favOnly };
+  } catch { return { fav: new Set(), hidden: new Set(), favOnly: false }; }
+})();
+st.favOnly = prefs.favOnly;
+// ---- 前回の選択を覚える(このスマホだけ) ----
+// view: day=日付ごと / week=7日間 / weekend=土日、sort: def=いつもの順 / near=近い順
+st.view = "day"; st.sort = "def";
+st.filt = { omni: false, clay: false, hard: false, indoor: false, night: false, fresh: false, long: false }; st.filtOpen = false;
+const UI_KEY = "courtUI";
+try {
+  const u = JSON.parse(localStorage.getItem(UI_KEY) || "{}");
+  if (typeof u.city === "string") st.city = u.city;
+  if (u.zone in ZONES) st.zone = u.zone;
+  if (["day", "week", "weekend"].includes(u.view)) st.view = u.view;
+  if (u.sort === "near") st.sort = "near";
+  if (typeof u.date === "string") st.date = u.date; // 過ぎた日なら、render が今日に直す
+  if (u.filt && typeof u.filt === "object") for (const k of Object.keys(st.filt)) st.filt[k] = !!u.filt[k];
+} catch {}
+function saveUI() {
+  try { localStorage.setItem(UI_KEY, JSON.stringify({ city: st.city, zone: st.zone, view: st.view, sort: st.sort, date: st.date, filt: st.filt })); } catch {}
+}
+
+// ---- 天気(気象庁の予報。降水確率は 6〜18時の大きいほう) ----
+const wArea = () => st.city === "木津川市" ? "kyoto" : "nara";
+const W_NAME = { nara: "奈良県北部", kyoto: "京都府南部" };
+function weatherOf(d) {
+  const w = ((data.weather || {})[wArea()] || {})[d];
+  return w && (w.pop != null || w.icon) ? w : null;
+}
+const weatherText = (d) => { const w = weatherOf(d); return w ? `${w.icon}${w.pop != null ? w.pop + "%" : ""}` : ""; };
+
+// ---- コートの種類・屋内・ナイターで絞り込む ----
+const FILT = [["fresh", "🆕 最近空いた"], ["long", "2時間以上"], ["omni", "オムニ"], ["clay", "クレー"], ["hard", "ハード"], ["indoor", "屋内"], ["night", "ナイター"]];
+const FILT_TITLE = { fresh: "前回の更新のあとに新しく空いた枠だけ", long: "2時間以上続けて空いている枠だけ", omni: "オムニ(砂入り人工芝)", clay: "クレー", hard: "全天候・ハード", indoor: "屋内(体育館など)", night: "ナイター(照明)がある施設" };
+const infoOf = (site, facility) => (data.courtInfo || {})[fkey(site, facility)] || null;
+/** コート名に種類が書いてあれば、それを優先(例: コートC(クレーコート)) */
+function surfacesOf(site, facility, court) {
+  if (court) {
+    if (/クレー/.test(court)) return ["clay"];
+    if (/砂入り|人工芝|オムニ/.test(court)) return ["omni"];
+    if (/ハード|全天候/.test(court)) return ["hard"];
+  }
+  const i = infoOf(site, facility); return i ? i.s : [];
+}
+const filtOn = () => ["omni", "clay", "hard", "indoor", "night"].some(k => st.filt[k]);
+// 枠ごとの条件(🆕・2時間以上)。同じコート・同じ日の、続いている空きをまとめて長さを見る(☎の枠も含めて続きとみなす)
+let runsFor = null, runs = new Map();
+function slotOk(x) {
+  if (st.filt.fresh && !x.fresh) return false;
+  if (st.filt.long) {
+    if (runsFor !== data) {
+      runs = new Map(); const g = new Map();
+      for (const y of data.slots) { const k = y.date + "|" + fkey(y.site, y.facility) + "|" + y.court; if (!g.has(k)) g.set(k, []); g.get(k).push([y.start, y.end]); }
+      for (const [k, sp] of g) { sp.sort((a, b) => a[0] - b[0]); const m = []; for (const [a, b] of sp) { const l = m[m.length - 1]; if (l && a <= l[1]) l[1] = Math.max(l[1], b); else m.push([a, b]); } runs.set(k, m); }
+      runsFor = data;
+    }
+    const m = runs.get(x.date + "|" + fkey(x.site, x.facility) + "|" + x.court) || [];
+    const r = m.find(([a, b]) => a <= x.start && x.end <= b);
+    if (!r || r[1] - r[0] < 2) return false;
+  }
+  return true;
+}
+function courtOk(site, facility, court) {
+  if (!filtOn()) return true;
+  const i = infoOf(site, facility);
+  const kinds = ["omni", "clay", "hard", "indoor"].filter(k => st.filt[k]);
+  if (kinds.length) {
+    const have = new Set(surfacesOf(site, facility, court)); if (i && i.i) have.add("indoor");
+    if (!kinds.some(k => have.has(k))) return false;
+  }
+  if (st.filt.night && !(i && i.n === 1)) return false;
+  return true;
+}
+let facCourts = new Map(), facCourtsFor = null;
+/** 施設のどれかのコートが条件に合うか(空きなしの一覧など、施設単位で出すところ用) */
+function facilityOk(site, facility) {
+  if (!filtOn()) return true;
+  if (facCourtsFor !== data) { facCourts = new Map(); for (const x of data.slots) { const k = fkey(x.site, x.facility); if (!facCourts.has(k)) facCourts.set(k, new Set()); facCourts.get(k).add(x.court); } facCourtsFor = data; }
+  const courts = facCourts.get(fkey(site, facility)) || new Set();
+  if (!courts.size) return courtOk(site, facility, "");
+  return [...courts].some(c => courtOk(site, facility, c));
+}
+function infoTag(site, facility) {
+  const i = infoOf(site, facility); if (!i) return "";
+  const L = { omni: "オムニ", clay: "クレー", hard: "ハード" };
+  const parts = i.i ? ["屋内"] : i.s.map(x => L[x]).filter(Boolean);
+  if (i.n === 1) parts.push("ナイターあり"); else if (i.n === 0 && !i.i) parts.push("ナイターなし");
+  return parts.join("・");
+}
+
+// ---- 近い順(現在地からの直線距離) ----
+let myPos = null; // {lat,lng}
+try { const p = JSON.parse(sessionStorage.getItem("courtPos") || "null"); if (p && Date.now() - p.t < 30 * 60e3) myPos = p; } catch {}
+function locate(then) {
+  if (!navigator.geolocation) { toast("この端末では現在地を使えません"); st.sort = "def"; render(); return; }
+  toast("現在地を確認しています…");
+  navigator.geolocation.getCurrentPosition(
+    (pos) => { myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude, t: Date.now() }; try { sessionStorage.setItem("courtPos", JSON.stringify(myPos)); } catch {} then && then(); },
+    () => { toast("現在地を取得できませんでした(位置情報の許可を確認してください)"); st.sort = "def"; render(); },
+    { enableHighAccuracy: false, timeout: 15000, maximumAge: 10 * 60e3 });
+}
+function distKm(site, facility) {
+  const c = (data.coords || {})[fkey(site, facility)];
+  if (!myPos || !c) return null;
+  return haversineKm(myPos.lat, myPos.lng, c[0], c[1]);
+}
+const kmLabel = (km) => km == null ? "" : km < 1 ? "約" + Math.round(km * 10) / 10 + "km" : "約" + (km < 10 ? km.toFixed(1) : Math.round(km)) + "km";
+/** 並べ順: お気に入りが先。近い順のときは、その中で近い順(位置が分からない施設は後ろ) */
+function facCompare(a, b) {
+  const f = isFav(b.site, b.facility) - isFav(a.site, a.facility);
+  if (f || st.sort !== "near" || !myPos) return f;
+  const da = distKm(a.site, a.facility), db = distKm(b.site, b.facility);
+  return (da == null ? 1e9 : da) - (db == null ? 1e9 : db);
+}
+function distTag(site, facility) {
+  if (st.sort !== "near" || !myPos) return null;
+  const km = distKm(site, facility);
+  const t = document.createElement("span"); t.className = "dist"; t.textContent = km == null ? "距離不明" : kmLabel(km);
+  return t;
+}
+function savePrefs() {
+  try { localStorage.setItem(PREF_KEY, JSON.stringify({ fav: [...prefs.fav], hidden: [...prefs.hidden], favOnly: st.favOnly })); } catch {}
+}
+const fkey = (site, facility) => site + "|" + facility;
+const isFav = (site, facility) => prefs.fav.has(fkey(site, facility));
+const isHidden = (site, facility) => prefs.hidden.has(fkey(site, facility));
+/** 一覧に出すか: 非表示にした施設は出さない。「お気に入りだけ」のときは、お気に入りだけ */
+const shown = (site, facility) => !isHidden(site, facility) && (!st.favOnly || isFav(site, facility)) && facilityOk(site, facility);
+function favButton(site, facility) {
+  const b = document.createElement("button"); b.type = "button";
+  const on = isFav(site, facility);
+  b.className = "fav" + (on ? " on" : ""); b.textContent = on ? "★" : "☆";
+  b.title = on ? facility + "をお気に入りから外す" : facility + "をお気に入りにする";
+  b.setAttribute("aria-label", "お気に入り"); b.setAttribute("aria-pressed", on);
+  b.onclick = (e) => { e.preventDefault(); const k = fkey(site, facility); on ? prefs.fav.delete(k) : prefs.fav.add(k); savePrefs(); render(); toast(on ? "お気に入りから外しました" : "お気に入りにしました"); };
+  return b;
+}
+function hideButton(site, facility) {
+  const b = document.createElement("button"); b.type = "button"; b.className = "mini hide-btn";
+  b.textContent = "非表示"; b.title = facility + "を一覧に出さない(あとで戻せます)";
+  b.onclick = () => { const k = fkey(site, facility), wasFav = prefs.fav.has(k); prefs.hidden.add(k); prefs.fav.delete(k); savePrefs(); render();
+    toast("非表示にしました", "元に戻す", () => { prefs.hidden.delete(k); if (wasFav) prefs.fav.add(k); savePrefs(); render(); }); };
+  return b;
+}
+let data = { slots:[], sites:[], links:[], errors:[] };
+let justImported = null; // 取り込んだ直後に出すお知らせの文
+let imported = null; // ユーザーが自分のブラウザで取り込んだ空き(この端末だけに保存)
+const IMPORT_KEY = "courtImport";
+const STALE_MS = 24 * 3600e3;
+
+// ブックマークレットが #import=<base64> で渡してきた取り込みを、保存してある分に重ねる(検証と重ね方は app-logic.js)
+function loadImport() {
+  const read = () => { try { return validateImport(JSON.parse(localStorage.getItem(IMPORT_KEY) || "null")); } catch { return null; } };
+  const m = location.hash.match(/^#import=([A-Za-z0-9+/=_-]+)$/);
+  if (m) {
+    try {
+      const inc = validateImport(JSON.parse(decodeURIComponent(escape(atob(m[1].replace(/-/g,"+").replace(/_/g,"/"))))));
+      if (inc) {
+        const merged = mergeImport(read(), inc, nowJst().today);
+        localStorage.setItem(IMPORT_KEY, JSON.stringify(merged));
+        const covers = inc.covers.length ? inc.covers : [...new Set(inc.slots.map(x => x.site))].map(x => ({ s: x }));
+        justImported = importLabel(covers) + ` の空きを取り込みました(${inc.slots.length}件)`;
+        // 取り込んだ日・エリアを、そのまま開く
+        const c = covers[0]; if (c && c.d) { st.view = "day"; st.date = c.d; } if (c) st.city = c.s;
+      }
+    } catch {}
+    history.replaceState(null, "", location.pathname + location.search); // URL からデータを消す
+  }
+  return read();
+}
+
+// 施設の予約サイトのURL。施設ごとに分かればそれ、なければエリアの入口(木津川市など)
+const urlFor = (site, facility) => {
+  const u = (data.facilityUrls || {})[site + "|" + facility] || ((data.links || []).find(l => l.name === site) || {}).entryUrl || ((data.postLinks || {})[site] || {}).url;
+  return typeof u === "string" && /^https?:\/\//.test(u) ? u : null;
+};
+// 施設の公式ページ(施設名を押したとき)。無ければ null(そのときは予約サイトを開く)
+function officialFor(site, facility) {
+  const u = (data.officialUrls || {})[site + "|" + facility] || (feeLinkFor(site, facility) || {}).url;
+  return typeof u === "string" && /^https?:\/\//.test(u) ? u : null;
+}
+const telHref = (t) => "tel:" + t.replace(/[^0-9+]/g, "");
+// 公式サイト(奈良市・生駒市)の検索フォームへ、選んだ日付と目的コードを入れて送信する。
+// 公式の画面で「日付を選ぶ→テニスを選ぶ→検索」と操作した状態と同じ結果が、新しいタブで開く。
+// ☎の枠の問い合わせ先。取得したデータにあればそれ、なければ設定の対応表(自分で取り込んだ枠のため)
+function contactFor(site, facility) {
+  const c = (data.contacts || {})[site + "|" + facility]; if (c) return c;
+  const r = (data.contactRules || {})[site]; if (!r) return null;
+  const hit = (r.list || []).find(x => facility.includes(x.match));
+  return hit ? hit : r.fallback ? { tel: r.fallback.tel, via: r.fallback.label, unconfirmed: true } : {};
+}
+function postFor(site, facility, court) {
+  const pl = (data.postLinks || {})[site];
+  if (!pl) return null;
+  const cc = data.courtCodes || {};
+  let code = court ? cc[site + "|" + facility + "|" + court] : null;
+  if (!code) { const pre = site + "|" + facility + "|"; const k = Object.keys(cc).find(x => x.startsWith(pre)); code = k ? cc[k] : null; }
+  code = code || pl.code; // どの目的か分からないとき(自分で取り込んだ枠)は、そのサイトの既定(硬式テニス)
+  return code ? { url: pl.url, type: pl.type, code } : null;
+}
+function submitSearch(post, date) {
+  const [y, m, d] = date.split("-");
+  const form = document.createElement("form");
+  form.method = "POST"; form.action = post.url; form.target = "_blank"; form.rel = "noopener noreferrer";
+  form.style.display = "none";
+  const fields = { op: "srch_mkt", UseYM: y + m, UseDay: String(Number(d)), UseDate: y + m + d, Type: post.type, MokutekiCode: post.code, disp_span: "0", searchBtn: "" };
+  for (const [k, v] of Object.entries(fields)) { const i = document.createElement("input"); i.type = "hidden"; i.name = k; i.value = v; form.appendChild(i); }
+  document.body.appendChild(form); form.submit(); form.remove();
+}
+// ---- 道案内: Google マップで、現在地からのルートを開く ----------------------
+// origin を付けないと、Google マップ(スマホではアプリ)が現在地を出発地にする
+const PREF = (site) => site === "木津川市" ? "京都府" : "奈良県";
+function mapDest(site, facility) {
+  const p = (data.places || []).find(r => r.site === site && facility.includes(r.match));
+  if (p) return p.dest;
+  // 名前で検索させる。「奈良市柏木コート」のように市名が入っていても、そのまま付ける(検索の精度が上がる)
+  return `${facility.replace(/[（(].*?[)）]/g, " ").trim()} ${PREF(site)}${site}`;
+}
+const mapUrl = (site, facility) => "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(mapDest(site, facility));
+function routeLink(site, facility, cls = "btn route") {
+  const a = document.createElement("a");
+  a.href = mapUrl(site, facility); a.target = "_blank"; a.rel = "noopener noreferrer";
+  a.className = cls; a.textContent = "🧭 ルート";
+  a.title = facility + "まで、現在地からのルートを Google マップで開く";
+  a.setAttribute("aria-label", "ルート(Google マップ)");
+  return a;
+}
+
+// ---- 夜(照明あり)の料金の目安。公式で確かめたコート料金と照明料を足すだけ ----
+function nightLine(site, facility, date, spans) {
+  const fee = feeFor(site, facility); const n = fee && fee.night; if (!n || !date) return null;
+  const month = Number(date.slice(5, 7));
+  const from = n.fromSummer && month >= 3 && month <= 9 ? n.fromSummer : n.from;
+  if (!spans.some(x => x.end > from)) return null; // 夜の枠が出ていなければ出さない
+  const el = document.createElement("div"); el.className = "night";
+  if (n.months && !n.months.includes(month)) { el.textContent = `🌙 この時期は照明が使えません(${n.note || ""})`; return el; }
+  const unit = n.unit === 1 ? "1時間" : n.unit + "時間";
+  const yen = (v) => v.toLocaleString("ja-JP") + "円";
+  el.textContent = `🌙 ${from}時以降は照明代 +${yen(n.light)}/${unit}(1面${unit} 計${yen(n.court + n.light)})`;
+  el.title = (n.note ? n.note + "。" : "") + "市内料金の目安";
+  return el;
+}
+
+// ---- 料金(公式の原本で確認できたものだけ。ない施設は、公式ページへのリンク) --------
+const feeFor = (site, facility) => (data.fees || []).find(r => r.site === site && facility.includes(r.match));
+const feeLinkFor = (site, facility) => (data.feeLinks || []).find(r => r.site === site && facility.includes(r.match));
+function feeBlock(site, facility) {
+  const fee = feeFor(site, facility);
+  if (fee) {
+    const det = document.createElement("details"); det.className = "fee";
+    const sum = document.createElement("summary"); sum.textContent = "料金: " + fee.summary + (fee.crossCheck && fee.crossCheck.status !== "match" ? "(要確認)" : ""); det.appendChild(sum);
+    const lines = document.createElement("div"); lines.className = "fee-lines";
+    for (const t of fee.lines) { const d = document.createElement("div"); d.textContent = t; lines.appendChild(d); }
+    det.appendChild(lines);
+    const [, m, d] = fee.checkedAt.split("-").map(Number);
+    const src = document.createElement("div"); src.className = "fee-src";
+    src.append("出典: ", anchor(fee.source.url, fee.source.label), `(確認日 ${m}/${d}。料金は改定されることがあります。最新は、公式の案内で確認してください)`);
+    det.appendChild(src);
+    // 裏付け: 別の資料(条例・別の公式ページ・テニスコート情報サイト)でも同じ金額か
+    const cc = fee.crossCheck;
+    if (cc && cc.sources && cc.sources.length) {
+      const box = document.createElement("div"); box.className = "fee-src fee-cc " + (cc.status === "match" ? "ok" : "warn");
+      box.append(cc.status === "match" ? "✓ 別の資料でも同じ金額でした: " : "⚠ 別の資料と金額が違います(公式の金額を表示しています): ");
+      cc.sources.forEach((x, i) => { if (i) box.append(" / "); box.append(anchor(x.url, x.label), x.note ? "(" + x.note + ")" : ""); });
+      det.appendChild(box);
+    }
+    return det;
+  }
+  const fl = feeLinkFor(site, facility);
+  if (fl) {
+    const d = document.createElement("div"); d.className = "fee";
+    d.append("料金は、公式ページで確認してください: ", anchor(fl.url, "施設の案内ページ"));
+    return d;
+  }
+  return null;
+}
+
+// ---- 空き枠の共有・コピー ------------------------------------------------
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch {}
+  try { // 古いブラウザ向けの保険
+    const ta = document.createElement("textarea"); ta.value = t; ta.style.cssText = "position:fixed;opacity:0";
+    document.body.appendChild(ta); ta.select(); const ok = document.execCommand("copy"); ta.remove(); return ok;
+  } catch { return false; }
+}
+function miniButton(label, aria, onclick) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "mini"; b.textContent = label; b.setAttribute("aria-label", aria); b.onclick = onclick;
+  return b;
+}
+
+// ---- 予定に追加(Google カレンダー / iPhone のカレンダー) -------------------------------
+// 予約が取れた枠を、自分のカレンダーに入れる。データはどこにも送らない(リンクとファイルを作るだけ)
+function calDetails(site, facility, court) {
+  const lines = [`${site} ${facility} ${court}`];
+  const fee = feeFor(site, facility); if (fee) lines.push("料金の目安: " + fee.summary);
+  const u = urlFor(site, facility); if (u) lines.push("予約サイト: " + u);
+  const o = officialFor(site, facility); if (o) lines.push("公式ページ: " + o);
+  lines.push("ルート: " + mapUrl(site, facility));
+  return lines.join("\n");
+}
+/** 予定に追加の画面を開く。spans はそのコートの、その日の空き(ネット予約できる枠を先に) */
+function openCal(site, facility, court, date, spans) {
+  const dlg = $("cal"); if (!dlg || !spans.length) return;
+  const STEP = 0.5;
+  const opts = [];
+  for (const s of spans) for (let h = s.start; h < s.end - 1e-9; h += STEP) opts.push({ h, span: s });
+  const from = $("cal-from"), to = $("cal-to");
+  from.innerHTML = ""; opts.forEach((o, i) => from.add(new Option(fmtT(o.h), i)));
+  const fillTo = () => {
+    const o = opts[+from.value]; const prev = +to.value;
+    to.innerHTML = "";
+    for (let h = o.h + STEP; h <= o.span.end + 1e-9; h += STEP) to.add(new Option(fmtT(h), h));
+    const want = [...to.options].find(x => Math.abs(+x.value - prev) < 1e-9) || [...to.options].find(x => Math.abs(+x.value - Math.min(o.h + 2, o.span.end)) < 1e-9) || to.options[to.options.length - 1];
+    to.value = want.value;
+  };
+  const update = () => {
+    const o = opts[+from.value];
+    const ev = { date, start: o.h, end: +to.value, title: `🎾 テニス ${facility} ${court}`, location: mapDest(site, facility), details: calDetails(site, facility, court) };
+    $("cal-g").href = googleCalUrl(ev);
+    $("cal-i").href = "data:text/calendar;charset=utf-8," + encodeURIComponent(icsText(ev));
+  };
+  from.onchange = () => { fillTo(); update(); };
+  to.onchange = update;
+  from.value = 0; to.innerHTML = ""; fillTo(); update();
+  $("cal-sub").textContent = `${dateLabel(date)} ${facility} ${court}`;
+  $("cal-close").onclick = () => dlg.close();
+  dlg.onclick = (e) => { if (e.target === dlg) dlg.close(); }; // 外側を押したら閉じる
+  if (typeof dlg.showModal === "function") dlg.showModal(); else dlg.setAttribute("open", "");
+}
+
+function anchor(url, text, cls, title, post) {
+  const a = document.createElement("a");
+  a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
+  if (cls) a.className = cls;
+  if (post) {
+    title = (title || "") + (title ? "。" : "") + "この日のテニスの空き一覧が開きます";
+    a.addEventListener("click", (e) => { e.preventDefault(); if (st.date) submitSearch(post, st.date); else window.open(url, "_blank", "noopener"); });
+  }
+  if (title) { a.title = title; a.setAttribute("aria-label", title); }
+  a.textContent = text;
+  return a;
+}
+
+function chips(el, items, key) {
+  el.innerHTML = "";
+  for (const [v, label] of items) {
+    const b = document.createElement("button");
+    b.textContent = label; b.setAttribute("aria-pressed", st[key] === v);
+    b.onclick = () => { st[key] = v; render(); };
+    el.appendChild(b);
+  }
+}
+
+// ---- 取得できなかった範囲の知らせ(「空きなし」ではないことを伝える) ----
+function failNote(dates) {
+  const names = failedAreas(data.failures, st.city, dates, imported && imported.days);
+  if (!names.length) return null;
+  const el = document.createElement("div"); el.className = "failnote"; el.setAttribute("role", "note");
+  const shown = names.length > 3 ? names.slice(0, 3).join("・") + `ほか${names.length - 3}エリア` : names.join("・");
+  el.textContent = `⚠ ${shown}は、取得できなかった分があります。出ていない施設は「空きなし」ではありません。予約サイトで確認してください。`;
+  // 自分のスマホで開いた画面から取り込める市(奈良市・生駒市)があれば、その案内を1つだけ
+  if (names.some(n => (data.postLinks || {})[n])) { const a = document.createElement("a"); a.href = "bookmarklet.html"; a.textContent = "自分で空きを取り込む方法 →"; a.style.cssText = "display:block;margin-top:4px;color:inherit;font-weight:600"; el.appendChild(a); }
+  return el;
+}
+
+// ---- 何日かまとめて表示(7日間 / 土日) ------------------------------------
+// 日付ごとに、空きのある施設を1行ずつ。行を押すと、その日の「日付ごと」の画面に移る
+function renderMulti(vis, dates) {
+  const list = $("list"); list.innerHTML = "";
+  const [, z0, z1] = ZONES[st.zone];
+  const wd = weekday;
+  const todayJ = nowJst().today;
+  const future = dates.filter(d => d >= todayJ);
+  let ds = future.slice(0, 7);
+  if (st.view === "weekend") ds = future.filter(d => [0, 6].includes(wd(d))).slice(0, 4);
+  const hint = document.createElement("div"); hint.className = "hint";
+  hint.textContent = "施設を押すと、その日のコートごとの空きが出ます。" + (vis.some(x => x.fresh) ? "🆕 は、この3時間ほどで新しく空いた枠がある施設です。" : "");
+  list.appendChild(hint);
+  const fn = failNote(ds); if (fn) list.appendChild(fn);
+  let any = false;
+  for (const d of ds) {
+    const hits = vis.filter(s => s.date === d && (st.city === "all" || s.site === st.city) && s.start < z1 && s.end > z0 && shown(s.site, s.facility) && courtOk(s.site, s.facility, s.court) && slotOk(s));
+    const card = document.createElement("section"); card.className = "card multi";
+    const h = document.createElement("h2"); h.className = "mday " + (wd(d) === 6 ? "sat" : wd(d) === 0 ? "sun" : "");
+    h.textContent = dateLabel(d);
+    if (weatherText(d)) { const wx = document.createElement("span"); wx.className = "wx-h"; wx.textContent = weatherText(d); h.appendChild(wx); }
+    card.appendChild(h);
+    const byFac = new Map();
+    for (const s of hits) {
+      const k = fkey(s.site, s.facility);
+      if (!byFac.has(k)) byFac.set(k, { site: s.site, facility: s.facility, courts: new Set(), spans: [] });
+      const f = byFac.get(k); f.courts.add(s.court); f.spans.push(s);
+    }
+    if (!byFac.size) {
+      const e = document.createElement("div"); e.className = "city"; e.textContent = "この条件の空きはありません";
+      card.appendChild(e); list.appendChild(card); continue;
+    }
+    any = true;
+    for (const f of [...byFac.values()].sort(facCompare)) {
+      // 施設全体で、空いている時間帯をまとめる(どこかのコートが空いていれば空き)
+      const merged = mergeFacilitySpans(f.spans);
+      const row = document.createElement("div"); row.className = "mrow";
+      const main = document.createElement("button"); main.type = "button"; main.className = "mmain";
+      main.title = dateLabel(d) + " " + f.facility + " の空きを詳しく見る";
+      const nm = document.createElement("span"); nm.className = "mname"; nm.textContent = (f.spans.some(x => x.fresh) ? "🆕 " : "") + f.facility;
+      const sub = document.createElement("span"); sub.className = "msub";
+      sub.textContent = f.site + " ・ " + f.courts.size + "面";
+      const dt = distTag(f.site, f.facility); if (dt) sub.append(" ・ ", dt);
+      const tm = document.createElement("span"); tm.className = "mtimes";
+      for (const [a, b2, off] of merged) { const c = document.createElement("span"); c.className = "t" + (off ? " off" : ""); c.textContent = `${hm(a)}–${hm(b2)}${off ? " ☎" : ""}`; tm.appendChild(c); }
+      main.append(nm, sub, tm);
+      main.onclick = () => { st.view = "day"; st.date = d; render(); scrollTo(0, 0); };
+      row.append(main);
+      card.appendChild(row);
+    }
+    list.appendChild(card);
+  }
+  if (!any && st.favOnly) {
+    const e = document.createElement("div"); e.className = "empty";
+    e.textContent = "お気に入りの施設に、この期間の空きはありません。「★ お気に入りだけ」を押すと、すべての施設に戻ります。";
+    list.appendChild(e);
+  }
+}
+
+function render() {
+  // 押したボタンが作り直されても、フォーカスを同じ位置に戻す(読み上げが先頭に飛ばないように)
+  const ae = document.activeElement, rowEl = ae && ae.closest && ae.closest(".row");
+  const keep = rowEl && rowEl.id ? [rowEl.id, [...rowEl.children].indexOf(ae)] : null;
+  renderInner();
+  if (keep) { const r = $(keep[0]); const el = r && r.children[keep[1]]; if (el && el.focus) el.focus({ preventScroll: true }); }
+}
+function renderInner() {
+  const { today: todayJ, hour: hourJ } = nowJst();
+  const isPast = (x) => x.date === todayJ && x.end <= hourJ;
+  const vis = data.slots.filter(x => !isPast(x));   // 表示する枠(終わった枠を除く)
+  // 日付ストリップ(空きがある日にマーク)
+  const allDates = [...new Set([...data.slots.map(s => s.date), ...(data.status || []).map(x => x.d)])].sort();
+  const dates = visibleDates(allDates, todayJ); // 昨日より前の日は出さない
+  if (!st.date || !dates.includes(st.date)) st.date = dates[0] || null;
+  $("days").innerHTML = "";
+  $("days").hidden = st.view !== "day";
+  for (const d of dates) {
+    // 端末のタイムゾーンに左右されないよう、日付文字列から直接作る
+    const [yy, mm, dd] = d.split("-").map(Number);
+    const dt = new Date(Date.UTC(yy, mm - 1, dd)), w = dt.getUTCDay();
+    const b = document.createElement("button");
+    b.className = "day " + (w === 6 ? "sat" : w === 0 ? "sun" : "");
+    b.innerHTML = `<small>${WD[w]}</small><b>${dt.getUTCMonth()+1}/${dt.getUTCDate()}</b>` + (weatherText(d) ? `<span class="wx">${weatherText(d)}</span>` : "");
+    b.setAttribute("aria-pressed", st.date === d);
+    const w0 = weatherOf(d); b.setAttribute("aria-label", `${dt.getUTCMonth()+1}月${dt.getUTCDate()}日(${WD[w]})` + (w0 && w0.pop != null ? ` 降水確率${w0.pop}%` : ""));
+    b.onclick = () => { st.date = d; render(); };
+    $("days").appendChild(b);
+  }
+  chips($("cities"), [["all","全エリア"], ...data.sites.map(s => [s, s])], "city");
+  chips($("zones"), Object.entries(ZONES).map(([k, v]) => [k, v[0]]), "zone");
+  const pb = $("viewbar"); pb.innerHTML = "";
+  for (const [v, label] of [["day", "1日ずつ"], ["week", "1週間"], ["weekend", "土日"]]) {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = label;
+    b.setAttribute("aria-pressed", st.view === v);
+    b.onclick = () => { st.view = v; render(); };
+    pb.appendChild(b);
+  }
+  const fo = document.createElement("button"); fo.type = "button";
+  fo.textContent = "★ お気に入り" + (prefs.fav.size ? `(${prefs.fav.size})` : "");
+  fo.setAttribute("aria-pressed", st.favOnly);
+  fo.onclick = () => { if (!prefs.fav.size && !st.favOnly) { toast("施設名の横の☆を押すと、お気に入りにできます"); return; } st.favOnly = !st.favOnly; savePrefs(); render(); };
+  pb.appendChild(fo);
+  const nf = Object.values(st.filt).filter(Boolean).length;
+  const fb = document.createElement("button"); fb.type = "button";
+  fb.textContent = "絞り込み" + (nf ? `(${nf})` : "") + (st.filtOpen ? " ▴" : " ▾"); fb.setAttribute("aria-expanded", !!st.filtOpen); if (nf) fb.classList.add("on");
+  fb.onclick = () => { st.filtOpen = !st.filtOpen; render(); };
+  const nb = document.createElement("button"); nb.type = "button";
+  nb.textContent = "近い順"; nb.setAttribute("aria-pressed", st.sort === "near");
+  nb.onclick = () => {
+    if (st.sort === "near") { st.sort = "def"; render(); return; }
+    st.sort = "near";
+    if (myPos) render(); else locate(() => { render(); toast("現在地から近い順に並べました"); });
+  };
+  pb.appendChild(nb);
+  pb.appendChild(fb);
+  const fr = $("filterbar"); fr.innerHTML = ""; fr.hidden = !st.filtOpen;
+  for (const [k, label] of FILT) {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = label; b.title = FILT_TITLE[k];
+    b.setAttribute("aria-pressed", st.filt[k]);
+    b.onclick = () => { st.filt[k] = !st.filt[k]; render(); };
+    fr.appendChild(b);
+  }
+  if (nf) { const c = document.createElement("button"); c.type = "button"; c.className = "mini"; c.textContent = "解除"; c.onclick = () => { for (const k in st.filt) st.filt[k] = false; render(); }; fr.appendChild(c); }
+  saveUI();
+  if (st.sort === "near" && !myPos) locate(() => render()); // 前回「近い順」だったとき
+  if (st.view !== "day") { renderMulti(vis, dates); return; }
+
+  const [, z0, z1] = ZONES[st.zone];
+  const hits = vis.filter(s => s.date === st.date && (st.city === "all" || s.site === st.city) && s.start < z1 && s.end > z0 && shown(s.site, s.facility) && courtOk(s.site, s.facility, s.court) && slotOk(s));
+  const byFac = new Map();
+  for (const s of hits) {
+    const k = s.site + "|" + s.facility;
+    if (!byFac.has(k)) byFac.set(k, { site:s.site, facility:s.facility, courts:new Map() });
+    const c = byFac.get(k).courts;
+    if (!c.has(s.court)) c.set(s.court, []);
+    c.get(s.court).push(s);
+  }
+  const list = $("list");
+  list.innerHTML = "";
+  const fn = failNote([st.date]); if (fn) list.appendChild(fn);
+  if (byFac.size) {
+    const hint = document.createElement("div"); hint.className = "hint";
+    hint.textContent = "時間を押すと予約サイト、施設名を押すと施設の案内が開きます。" + (hits.some(x => x.fresh) ? "🆕 は、この3時間ほどで新しく空いた枠です。" : "");
+    list.appendChild(hint);
+  }
+  // お気に入りを先に(それ以外は、これまでどおりの順)
+  const facs = [...byFac.values()].sort(facCompare);
+  for (const f of facs) {
+    const card = document.createElement("section");
+    card.className = "card";
+    card.innerHTML = `<div class="city">${f.site}</div><h2></h2>`;
+    const dt0 = distTag(f.site, f.facility); if (dt0) card.querySelector(".city").append(" ・ ", dt0);
+    const tg = infoTag(f.site, f.facility); if (tg) card.querySelector(".city").append(" ・ " + tg);
+    // 自分で取り込んだ空きは、そう分かるように、取り込んだ時刻を出す(自動では更新されないため)
+    const impAt = [...f.courts.values()].flat().map(x => x.imported).find(Boolean);
+    if (impAt) { const t = new Date(impAt); card.querySelector(".city").append(` ・ 📥 ${mdhm(t)} に取り込み` + (Date.now() - t.getTime() > STALE_MS ? "(古い可能性)" : "")); }
+    const fUrl = urlFor(f.site, f.facility);
+    const h2 = card.querySelector("h2");
+    const oUrl = officialFor(f.site, f.facility);
+    if (oUrl) { const a = anchor(oUrl, f.facility, ""); a.title = f.facility + "の公式ページ(場所・駐車場・注意事項など)を開く"; h2.appendChild(a); }
+    else if (fUrl) h2.appendChild(anchor(fUrl, f.facility, "", "予約サイトを開く", postFor(f.site, f.facility)));
+    else h2.textContent = f.facility;
+    h2.prepend(favButton(f.site, f.facility));
+    const fNote = (data.facilityNotes || {})[f.site + "|" + f.facility];
+    if (fNote) { const nn = document.createElement("div"); nn.className = "city"; nn.textContent = fNote; h2.insertAdjacentElement("afterend", nn); }
+    for (const [court, ss] of f.courts) {
+      const row = document.createElement("div");
+      row.className = "court";
+      const name = document.createElement("span");
+      name.textContent = court; // コート名はリンクにしない(予約は時間の枠から)
+      const times = document.createElement("span"); times.className = "times";
+      // 連続する枠(9-10, 10-11 …)は 1 つにまとめる。ネット予約できる枠と、受付外(●・電話)の枠は分けて結合する
+      const merged = mergeCourtSpans(ss);
+      for (const s of merged) {
+        const label = `${hm(s.start)}–${hm(s.end)}`;
+        const cls = "t" + (s.offline ? " off" : "") + (s.fresh ? " fresh" : "");
+        const text = (s.fresh ? "🆕" : "") + (s.offline ? label + " ☎" : label);
+        const title = s.offline ? `${court} ${label}(ネット予約は受付外・電話や窓口で予約)` : `${court} ${label} の予約サイトを開く`;
+        if (s.offline) { // ネット予約の受付外: 予約サイトではなく、このカードの電話番号へ
+          const b = document.createElement("button"); b.type = "button"; b.className = cls; b.textContent = text;
+          b.title = `${court} ${label}(ネット予約は受付外。押すと電話番号へ)`; b.setAttribute("aria-label", (s.fresh ? "新しい空き " : "") + b.title);
+          b.onclick = () => { const tgt = card.querySelector(".btn.tel") || card.querySelector(".offnote"); if (!tgt) return; tgt.scrollIntoView({ behavior: "smooth", block: "center" }); tgt.classList.add("flash"); setTimeout(() => tgt.classList.remove("flash"), 1600); };
+          times.appendChild(b);
+        } else if (fUrl) times.appendChild(anchor(fUrl, text, cls, (s.fresh ? "新しい空き " : "") + title, postFor(f.site, f.facility, court)));
+        else { const t = document.createElement("span"); t.className = cls; t.textContent = text; times.appendChild(t); }
+      }
+      // コピー・共有(友達に「ここどう?」と送る、メモに残す、など)
+      const ct = contactFor(f.site, f.facility);
+      const text = shareText({ facility: f.facility, court, date: st.date, spans: merged, url: fUrl, tel: ct && ct.tel });
+      const act = document.createElement("span"); act.className = "court-actions";
+      // iPhone などは「共有」1つ(共有メニューにコピーもある)。共有がない端末だけ「コピー」
+      if (navigator.share) act.appendChild(miniButton("共有", court + "の空きを共有", async () => { try { await navigator.share({ text }); } catch {} }));
+      else act.appendChild(miniButton("コピー", court + "の空きをコピー", async () => toast((await copyText(text)) ? "コピーしました" : "コピーできませんでした")));
+      act.appendChild(miniButton("📅 予定", court + "の予約をカレンダーに追加", () => openCal(f.site, f.facility, court, st.date, [...merged.filter(m => !m.offline), ...merged.filter(m => m.offline)])));
+      name.appendChild(act);
+      row.append(name, times); card.appendChild(row);
+    }
+    if ([...f.courts.values()].some(ss => ss.some(x => x.offline))) {
+      const box = document.createElement("div"); box.className = "offnote";
+      const msg = document.createElement("div");
+      msg.textContent = "点線(☎)の枠は空きですが、ネット予約の受付外です。電話や窓口でお申し込みください。";
+      box.appendChild(msg);
+      const ct = contactFor(f.site, f.facility);
+      if (ct && ct.tel) {
+        if (ct.unconfirmed && ct.via) { const w = document.createElement("div"); w.textContent = "この施設の電話番号は確認できていません。まず " + ct.via + " にお問い合わせください。"; box.appendChild(w); }
+        const a = document.createElement("a");
+        a.href = telHref(ct.tel); a.className = "btn tel";
+        a.textContent = "☎ " + (ct.via ? ct.via + " " : "") + ct.tel;
+        box.appendChild(a);
+        if (ct.hours) { const h = document.createElement("span"); h.style.marginLeft = "4px"; h.textContent = ct.hours; box.appendChild(h); }
+      } else {
+        const w = document.createElement("div"); w.textContent = "電話番号は未登録です。市の公式ページで確認してください。"; box.appendChild(w);
+      }
+      card.appendChild(box);
+    }
+    const nl = nightLine(f.site, f.facility, st.date, [...f.courts.values()].flat());
+    if (nl) card.appendChild(nl);
+    const feeEl = feeBlock(f.site, f.facility);
+    if (feeEl) card.appendChild(feeEl);
+    const foot = document.createElement("div"); foot.className = "card-foot"; foot.append(routeLink(f.site, f.facility), hideButton(f.site, f.facility)); card.appendChild(foot);
+    list.appendChild(card);
+  }
+  // 空きがない施設は、理由ごとに分けて表示する
+  //  full=すべて予約済み / closed=休館・利用不可 / unpub=予約アプリにまだ枠が出ていない(分からない)
+  const key = (x) => x.s + "|" + x.f;
+  const openInZone = new Set(hits.map(s => s.site + "|" + s.facility));
+  const openToday = new Set(data.slots.filter(s => s.date === st.date).map(s => s.site + "|" + s.facility));
+  const cityOk = (site) => st.city === "all" || site === st.city;
+  const reasons = { full: new Map(), closed: new Map(), unpub: new Map() };
+  for (const x of (data.status || [])) {
+    if (x.d !== st.date || !cityOk(x.s) || !shown(x.s, x.f)) continue;
+    const k = key(x);
+    if (openInZone.has(k)) continue;                                      // カードで表示済み
+    reasons[openToday.has(k) ? "full" : x.t].set(k, { site: x.s, facility: x.f, label: x.l });
+  }
+  // 他の時間帯には空きがあるが、選んだ時間帯にはない施設
+  for (const s of data.slots) {
+    if (s.date !== st.date || !cityOk(s.site) || !shown(s.site, s.facility)) continue;
+    const k = s.site + "|" + s.facility;
+    if (!openInZone.has(k)) reasons.full.set(k, { site: s.site, facility: s.facility });
+  }
+  const zoneNote = st.zone === "all" ? "" : "(" + ZONES[st.zone][0] + ")";
+  const reasonCard = (title, lead, items, cls) => {
+    if (!items.size) return;
+    const card = document.createElement("section");
+    card.className = "card " + cls;
+    const det = document.createElement("details");
+    det.open = items.size <= 5;
+    const sum = document.createElement("summary");
+    sum.className = "reason-title"; sum.textContent = `${title}(${items.size}施設)`;
+    det.appendChild(sum);
+    if (lead) { const l = document.createElement("div"); l.className = "city"; l.textContent = lead; det.appendChild(l); }
+    for (const it of [...items.values()].sort((a, b) => facCompare(a, b) || a.site.localeCompare(b.site, "ja"))) {
+      const row = document.createElement("div"); row.className = "reason-row";
+      row.appendChild(favButton(it.site, it.facility));
+      const url = urlFor(it.site, it.facility);
+      const ou = officialFor(it.site, it.facility);
+      const name = ou ? anchor(ou, it.facility, "cn", it.facility + "の公式ページを開く") : url ? anchor(url, it.facility, "cn", it.facility + "の予約サイトを開く", postFor(it.site, it.facility)) : document.createTextNode(it.facility);
+      const area = document.createElement("small"); area.textContent = it.site + (it.label ? "・" + it.label : "");
+      const col = document.createElement("span"); col.className = "rname"; col.append(name, area);
+      row.append(col);
+      det.appendChild(row);
+    }
+    card.appendChild(det);
+    list.appendChild(card);
+  };
+  reasonCard("まだ空きが公開されていません", "予約アプリに、この日の枠がまだ出ていません。空いているかどうかは、各施設の予約サイトで確認してください。", reasons.unpub, "unpub");
+  reasonCard("空きなし" + zoneNote, "", reasons.full, "none");
+  reasonCard("予約できない日(休館・受付期間外など)", "", reasons.closed, "none");
+
+  // 何も出ないとき(お気に入りだけ・非表示のせい)は、そう伝える
+  if (st.favOnly && !list.querySelector(".card")) {
+    const e = document.createElement("div"); e.className = "empty";
+    e.textContent = "この日・この条件では、お気に入りの施設の情報がありません。「★ お気に入りだけ」を押すと、すべての施設に戻ります。";
+    list.appendChild(e);
+  }
+  // 非表示にした施設(戻せる)
+  if (prefs.hidden.size) {
+    const card = document.createElement("section"); card.className = "card none";
+    const det = document.createElement("details");
+    const sum = document.createElement("summary"); sum.className = "reason-title"; sum.textContent = `非表示にした施設(${prefs.hidden.size})`;
+    det.appendChild(sum);
+    const l = document.createElement("div"); l.className = "city"; l.textContent = "このスマホだけの設定です。「戻す」で、一覧に出るようになります。"; det.appendChild(l);
+    for (const k of [...prefs.hidden].sort((a, b) => a.localeCompare(b, "ja"))) {
+      const [site, ...rest] = k.split("|"); const facility = rest.join("|");
+      const row = document.createElement("div"); row.className = "reason-row";
+      const name = document.createElement("span"); name.textContent = facility;
+      const area = document.createElement("small"); area.textContent = site;
+      const back = document.createElement("button"); back.type = "button"; back.className = "mini"; back.textContent = "戻す";
+      back.onclick = () => { prefs.hidden.delete(k); savePrefs(); render(); };
+      const col = document.createElement("span"); col.className = "rname"; col.append(name, area);
+      row.append(col, back); det.appendChild(row);
+    }
+    card.appendChild(det); list.appendChild(card);
+  }
+
+  // 自動取得できない地域は、公式サイトへのリンクを出す
+  for (const l of (data.links || [])) {
+    if (st.city !== "all" && st.city !== l.name) continue;
+    const card = document.createElement("section");
+    card.className = "card link";
+    const head = document.createElement("div"); head.className = "city"; head.textContent = l.name + "(自動取得なし)";
+    const h2 = document.createElement("h2"); h2.textContent = "公式サイトで空きを確認";
+    card.append(head, h2);
+    if (l.facilities && l.facilities.length) {
+      const box = document.createElement("div"); box.className = "city";
+      for (const f of l.facilities) {
+        const row = document.createElement("div");
+        const fee = feeFor(l.name, f.name);
+        row.textContent = f.name + (f.hint ? "(" + f.hint + ")" : "") + (fee ? " … " + fee.summary : "");
+        row.appendChild(routeLink(l.name, f.name, "route-mini"));
+        box.appendChild(row);
+      }
+      card.appendChild(box);
+    }
+    const a = document.createElement("a");
+    a.href = l.entryUrl; a.target = "_blank"; a.rel = "noopener noreferrer"; a.className = "btn";
+    a.textContent = "予約サイトを開く ↗";
+    card.appendChild(a);
+    const imp = document.createElement("a");
+    imp.href = "bookmarklet.html"; imp.className = "city"; imp.style.cssText = "display:block;margin-top:8px";
+    imp.textContent = "空きをこのアプリに取り込む方法 →";
+    card.appendChild(imp);
+    if (imported && (imported.at[l.name] || imported.slots.some(s => s.site === l.name))) {
+      const t = new Date(imported.at[l.name] || imported.importedAt);
+      const stale = Date.now() - t.getTime() > STALE_MS;
+      const n = document.createElement("div");
+      n.className = "city";
+      n.textContent = `この端末で取り込み済み: ${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}` + (stale ? "(古い可能性があります)" : "");
+      card.appendChild(n);
+    }
+    list.appendChild(card);
+  }
+  if (data.errors.length && !data.failures) { // 古い形式のデータ(失敗した場所の記録がない)のときだけ
+    const e = document.createElement("div"); e.className = "err";
+    e.textContent = `取得に失敗した日があります(${data.errors.length}件)。空き表示が不完全な可能性があります。`;
+    list.appendChild(e);
+  }
+}
+
+// アプリを開いたまま取り込みが来た場合(ハッシュだけが変わる)も読み直す
+window.addEventListener("hashchange", () => { if (/^#import=/.test(location.hash)) location.reload(); });
+
+// ---- 更新状況の表示 ----------------------------------------------------
+// 自動更新は UTC の 0,3,6,…時 17分(日本時間では 9,12,15,18,21,0,3,6時の17分)に動く。
+// 実行は数分〜数十分遅れることがあるので「目安」として扱う。
+const EVERY_MS = 3 * 3600e3, MINUTE_MS = 17 * 60e3;
+const UPDATING_WINDOW_MS = 40 * 60e3; // 予定時刻からこの間は「更新中かも」と案内する
+const DATA_STALE_MS = 6 * 3600e3; // データがこれより古いと警告
+const hhmm = (t) => `${String(t.getHours()).padStart(2,"0")}:${String(t.getMinutes()).padStart(2,"0")}`;
+const mdhm = (t) => `${t.getMonth()+1}/${t.getDate()} ${hhmm(t)}`;
+
+function scheduleOf(now) {
+  const last = Math.floor((now - MINUTE_MS) / EVERY_MS) * EVERY_MS + MINUTE_MS;
+  return { last, next: last + EVERY_MS };
+}
+/** "fresh" | "updating" | "stale" を返す(純粋関数) */
+function freshness(updatedAt, now) {
+  const { last } = scheduleOf(now);
+  if (updatedAt < last && now - last < UPDATING_WINDOW_MS) return "updating";
+  if (now - updatedAt > DATA_STALE_MS) return "stale";
+  return "fresh";
+}
+
+function showBanner(kind, html) {
+  const b = $("banner");
+  b.className = kind ? "show " + kind : "";
+  b.innerHTML = html || "";
+}
+let toastTimer;
+// 短いお知らせ。action を渡すと「元に戻す」などのボタンが付く(そのときは少し長く出す)
+function toast(msg, actionLabel, action) {
+  const el = $("toast"); clearTimeout(toastTimer);
+  el.textContent = ""; // 同じ文でも読み上げ直されるように、一度空にする
+  requestAnimationFrame(() => {
+    el.textContent = msg;
+    if (actionLabel) { const b = document.createElement("button"); b.type = "button"; b.textContent = actionLabel; b.onclick = () => { el.classList.remove("show", "act"); el.textContent = ""; action(); }; el.appendChild(b); el.classList.add("act"); }
+    else el.classList.remove("act");
+    el.classList.add("show");
+    toastTimer = setTimeout(() => { el.classList.remove("show", "act"); setTimeout(() => { if (!el.classList.contains("show")) el.textContent = ""; }, 400); }, actionLabel ? 6000 : 3500);
+  });
+}
+
+let pollTimer = null, pollUntil = 0, lastUpdatedAt = 0;
+function applyStatus(updatedAtMs) {
+  const now = Date.now();
+  const t = new Date(updatedAtMs), next = new Date(scheduleOf(now).next);
+  $("updated").textContent = `最終更新 ${mdhm(t)} ・ 次の更新は ${hhmm(next)} 頃`;
+  const f = freshness(updatedAtMs, now);
+  if (f === "updating") {
+    showBanner("info", '<span class="spin"></span>データを更新中です。数分で反映されます(自動で確認しています)。<button type="button" onclick="load(false)">最新を読み込む</button>');
+    if (!pollTimer) { pollUntil = now + 20 * 60e3; pollTimer = setInterval(() => { if (Date.now() > pollUntil) stopPoll(); else if (!document.hidden) load(true); }, 45e3); } // 画面を見ていない間は確認しない(戻ったときに確認する)
+  } else {
+    stopPoll();
+    if (f === "stale") {
+      const h = Math.floor((now - updatedAtMs) / 3600e3);
+      showBanner("warn", `データが古い可能性があります(最終更新から約${h}時間)。更新が止まっているかもしれません。<button type="button" onclick="load(false)">最新を読み込む</button>`);
+    } else showBanner("", "");
+  }
+}
+function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+// ---- 読み込み ----------------------------------------------------------
+// 小さな形式(v2)を、画面が使う「1枠ごとの配列」に戻す。保存前の「1枠ごと」の形
+const LOAD_TIMEOUT_MS = 15000;
+/** 時間制限つきの signal(電波が悪いときに「読み込み中…」のまま止まらないように)。古いブラウザでは制限なし */
+function timeoutSignal(ms) {
+  if (typeof AbortController !== "function") return undefined;
+  const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal;
+}
+async function fetchData() {
+  // no-cache: 毎回サーバーに確かめるが、変わっていなければ本文は送られない(自動確認のたびに全部を落とさない)
+  const r = await fetch("data2.json", { cache: "no-cache", signal: timeoutSignal(LOAD_TIMEOUT_MS) });
+  if (!r.ok) throw new Error(r.status);
+  const d = await r.json();
+  if (d.v === 2) d.slots = expandV2(d);
+  d._offline = r.headers.get("x-from-cache") === "1"; // 電波がなく、前回保存したデータを出している
+  return d;
+}
+
+let loadSeq = 0;
+function load(silent) {
+  if (!silent) showBanner("info", '<span class="spin"></span>読み込み中…');
+  // 読み込みが重なったとき(自動確認・画面に戻った・ボタン)は、最後に始めたものだけを画面に反映する。
+  // 遅れて届いた古い応答で、新しいデータを上書きしないため
+  const seq = ++loadSeq;
+  return fetchData().then(d => {
+    if (seq !== loadSeq) return false;
+    const updatedAt = Date.parse(d.updatedAt);
+    const firstLoad = !lastUpdatedAt;
+    const changed = updatedAt !== lastUpdatedAt;
+    if (silent && !changed) return false; // 新しいデータがまだ → そのまま待つ
+    data = d;
+    data.links = data.links || [];
+    imported = loadImport();
+    if (imported) {
+      // 自動取得のデータにそのエリアの枠があれば、そちらを使う(取り込んだ分は足さない)
+      const add = importedSlotsToShow(data.slots, imported, nowJst().today);
+      data.slots = data.slots.concat(add);
+      for (const s of add) if (!data.sites.includes(s.site)) data.sites.push(s.site);
+    }
+    lastUpdatedAt = updatedAt;
+    render();
+    applyStatus(updatedAt);
+    if (d._offline) showBanner("warn", "電波がないため、前回保存した空き状況を表示しています(最新ではありません)。<button type=\"button\" onclick=\"load(false)\">最新を読み込む</button>");
+    if (justImported) { toast(justImported); justImported = null; }
+    else if (!firstLoad && changed) toast("最新のデータに更新しました");
+    return changed;
+  }).catch(() => {
+    if (silent || seq !== loadSeq) return null; // 自動確認の失敗は静かに無視(次回また試す)
+    $("updated").textContent = "";
+    if (!lastUpdatedAt) $("list").innerHTML = "";
+    showBanner("error", 'データを読み込めませんでした。通信状況を確認してください。<button type="button" onclick="load(false)">もう一度読み込む</button>');
+    return null;
+  });
+}
+
+// アプリを開いたまま取り込みが来た場合(ハッシュだけが変わる)も読み直す
+window.addEventListener("hashchange", () => { if (/^#import=/.test(location.hash)) location.reload(); });
+// ページに戻ってきたとき(スマホで別アプリから戻る等)に、更新中・古い状態を見直す
+document.addEventListener("visibilitychange", () => { if (!document.hidden && lastUpdatedAt) load(true); });
+// ---- ① 最新を読み込む(公開サイトの最新データを、画面に読み込み直す) ----------
+$("btnReload").onclick = async () => {
+  const b = $("btnReload"); b.disabled = true; b.textContent = "読み込み中…";
+  const r = await load(true);
+  b.disabled = false; b.textContent = "↻ 最新を読み込む";
+  if (r === null) toast("読み込めませんでした。通信状況を確認してください");
+  else if (r === false) toast("すでに最新のデータです");
+};
+
+// ---- ② 空き状況を取得し直す(中継役を通して、GitHub の取得を起動する) ---------
+// 画面に GitHub の鍵は置けないので、鍵を持つ中継役(worker/)に頼む。合言葉が必要。
+// 中継役のURLは、公開サイトの refresh-config.json に書かれていれば、このボタンが出る。
+let refreshUrl = null;
+const storeGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const storeSet = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch {} };
+fetch("refresh-config.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(c => {
+  if (c && typeof c.url === "string" && /^https:\/\//.test(c.url)) { refreshUrl = c.url.replace(/\/+$/, ""); $("btnRefresh").hidden = false; }
+}).catch(() => {});
+
+function startPolling(ms) {
+  pollUntil = Date.now() + ms;
+  if (pollTimer) return;
+  pollTimer = setInterval(() => {
+    if (Date.now() > pollUntil) {
+      stopPoll();
+      showBanner("warn", "取得に時間がかかっています。しばらくしてから「最新を読み込む」を押してください。うまくいかないときは、更新に失敗した可能性があります。");
+    } else if (!document.hidden) load(true);
+  }, 45e3);
+}
+
+$("btnRefresh").onclick = async () => {
+  if (!refreshUrl) return;
+  let pass = storeGet("refreshPass");
+  if (!pass) { pass = (prompt("合言葉を入力してください(3人で共有しているもの)") || "").trim(); if (!pass) return; }
+  const b = $("btnRefresh"); b.disabled = true;
+  showBanner("info", '<span class="spin"></span>取得を依頼しています…');
+  try {
+    const r = await fetch(refreshUrl + "/refresh", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ passcode: pass }) });
+    if (r.status === 401) { storeSet("refreshPass", null); showBanner("error", "合言葉が違います。もう一度ボタンを押して、入力し直してください。"); return; }
+    if (!r.ok) throw new Error(r.status);
+    storeSet("refreshPass", pass); // この端末に覚えておく(次回から入力不要)
+    const j = await r.json();
+    if (j.result === "cooldown") {
+      showBanner("warn", `さきほど更新したばかりです。あと約${Math.max(1, Math.ceil(j.waitSec / 60))}分後に、もう一度押せます。`);
+      setTimeout(() => { if ($("banner").classList.contains("warn")) showBanner("", ""); }, 8000);
+      return;
+    }
+    showBanner("info", '<span class="spin"></span>' + (j.result === "running"
+      ? "すでに取得中です。終わると、新しい内容に変わります(自動で確認しています)。"
+      : "空き状況の取得を開始しました。約5〜10分で、新しい内容に変わります(自動で確認しています)。"));
+    startPolling(20 * 60e3);
+  } catch {
+    showBanner("error", "取得の依頼に失敗しました。時間をおいて、もう一度お試しください。");
+  } finally { b.disabled = false; }
+};
+
+load(false);
+
+// ---- ホーム画面に追加(アプリのように使う) ----------------------------------
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) navigator.serviceWorker.register("sw.js").catch(() => {});
+(function installHint() {
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  let done = false, visits = 0;
+  try { done = localStorage.getItem("courtInstallHint") === "done"; visits = +(localStorage.getItem("courtVisits") || 0) + 1; localStorage.setItem("courtVisits", visits); } catch {}
+  // 初めて開いたときは出さない(まず空きを見てもらう)。2回目から
+  if (standalone || done || visits < 2) return;
+  const bar = document.createElement("div"); bar.id = "install";
+  const body = document.createElement("div");
+  const close = document.createElement("button"); close.type = "button"; close.className = "mini"; close.textContent = "閉じる";
+  close.onclick = () => { bar.hidden = true; try { localStorage.setItem("courtInstallHint", "done"); } catch {} };
+  bar.append(body, close);
+  const ua = navigator.userAgent;
+  const ios = /iphone|ipad|ipod/i.test(ua);
+  const inApp = /\bLine\/|FBAN|FBAV|Instagram/i.test(ua); // LINE などのアプリの中のブラウザ
+  if (inApp) {
+    body.textContent = "📲 ホーム画面に置くには、右下(または右上)の「︙」や共有ボタンから「ブラウザで開く」を選び、Safari で開いてください。";
+  } else if (ios) {
+    const det = document.createElement("details");
+    const sum = document.createElement("summary"); sum.textContent = "📲 ホーム画面に置く方法";
+    const ol = document.createElement("ol");
+    for (const t of ["画面の下(または上)の 共有ボタン(□から↑が出ている形)を押す。見当たらないときは「…」を押すと出ます", "出てきたメニューを下へスクロールして「ホーム画面に追加」を押す", "右上の「追加」を押す"]) { const li = document.createElement("li"); li.textContent = t; ol.appendChild(li); }
+    det.append(sum, ol); body.appendChild(det);
+  } else {
+    window.addEventListener("beforeinstallprompt", (e) => {
+      e.preventDefault();
+      const add = document.createElement("button"); add.type = "button"; add.textContent = "📲 ホーム画面に追加";
+      add.onclick = async () => { e.prompt(); try { await e.userChoice; } catch {} bar.hidden = true; try { localStorage.setItem("courtInstallHint", "done"); } catch {} };
+      body.appendChild(add); document.querySelector("header").appendChild(bar);
+    });
+    return;
+  }
+  document.querySelector("header").appendChild(bar);
+})();
+</script>
+</body>
+</html>
